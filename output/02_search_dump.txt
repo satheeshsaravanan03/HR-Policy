@@ -1,0 +1,188 @@
+
+==============================================================================
+SEARCH-ONLY DUMP -- strategy: recursive
+==============================================================================
+
+Q1: How many casual or sick leaves does an employee at the Bangalore office get in a calendar year?
+  expected: SS-HB-2025 section 9.2  [table row]
+  known answer: 15 casual/sick leaves per calendar year
+  verdict: HIT at rank 1
+    1. 0.7968  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0056-8b3658f4 <<<
+    2. 0.7342  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0057-63a975bf    
+    3. 0.7172  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0058-6fa4ea9f    
+    4. 0.7127  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0073-fb1fe97c    
+    5. 0.7124  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0070-a80c1d3f    
+
+Q2: How many privilege leaves are listed for the Chennai office?
+  expected: SS-HB-2025 section 9.2  [table row]
+  known answer: 3 privilege leaves, at the discretion of the company
+  verdict: HIT at rank 1
+    1. 0.7900  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0056-8b3658f4 <<<
+    2. 0.7107  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0057-63a975bf    
+    3. 0.6922  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0069-8c06c5b1    
+    4. 0.6915  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0058-6fa4ea9f    
+    5. 0.6873  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0068-ab102baa    
+
+Q3: What is the maximum number of vacation hours accrued per 80-hour pay period for Arizona university staff?
+  expected: USM-3-113 section 3-113.3  [table row]
+  known answer: 6.77 hours per 80-hour pay period
+  verdict: HIT at rank 1
+    1. 0.7699  USM-3-113 s.-          Arizona    USM-3-113#recursive-0001-22ef4d5a <<<
+    2. 0.7357  USM-3-113 s.-          Arizona    USM-3-113#recursive-0000-2a119e0b    
+    3. 0.7104  USM-3-113 s.-          Arizona    USM-3-113#recursive-0002-53a0f6a4    
+    4. 0.7068  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0027-08d40521    
+    5. 0.6980  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0026-7ce0abd6    
+
+Q4: For non-technical staff, how many unused leaves can be carried over to the next year?
+  expected: SS-HB-2025 section 9.3
+  known answer: A maximum of nine leaves carry over; technical staff get encashment instead
+  verdict: HIT at rank 1
+    1. 0.7755  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0057-63a975bf <<<
+    2. 0.7050  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0056-8b3658f4    
+    3. 0.6978  USM-3-113 s.-          Arizona    USM-3-113#recursive-0001-22ef4d5a    
+    4. 0.6810  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0063-69d8b8c1    
+    5. 0.6755  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0067-0a0dbd81    
+
+Q5: How many accrued vacation hours may Arizona staff carry forward each year?
+  expected: USM-3-113 section 3-113.5
+  known answer: Up to 320 accrued hours, prorated by FTE; excess is forfeited
+  verdict: HIT at rank 1
+    1. 0.7393  USM-3-113 s.-          Arizona    USM-3-113#recursive-0001-22ef4d5a <<<
+    2. 0.7000  USM-3-113 s.-          Arizona    USM-3-113#recursive-0000-2a119e0b    
+    3. 0.6813  USM-3-113 s.-          Arizona    USM-3-113#recursive-0002-53a0f6a4    
+    4. 0.6635  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0027-08d40521    
+    5. 0.6593  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0071-ab8057fc    
+
+Q6: What is the maximum maternity leave, and how much of it may be taken before delivery?
+  expected: SS-HB-2025 section 9.8
+  known answer: 26 weeks maximum, of which 8 weeks may precede delivery
+  verdict: HIT at rank 1
+    1. 0.7028  SS-HB-2025 s.-         India      SS-HB-2025#recursive-0068-ab102baa <<<
+    2. 0.6963  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0028-865e0a1d    
+    3. 0.6933  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0145-e3933d1c    
+    4. 0.6848  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0025-50cd4c00    
+    5. 0.6806  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0142-b9bd40f9    
+
+Q7: How many university-designated holidays do Michigan faculty receive, plus any floating holiday?
+  expected: UM-FH-16 section 16.D.1
+  known answer: Seven University-designated holidays plus one floating holiday
+  verdict: HIT at rank 1
+    1. 0.7741  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0026-7ce0abd6 <<<
+    2. 0.7647  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0001-5031658e    
+    3. 0.7607  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0002-7c705f55    
+    4. 0.7385  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0028-4f7da451    
+    5. 0.7368  UM-FH-16 s.-           Michigan   UM-FH-16#recursive-0027-08d40521    
+
+Q8: Do Research Foundation employees get paid for jury duty, and what documentation is required?
+  expected: RF-LEAVE section Jury Duty
+  known answer: Full pay for necessary time off; a jury duty voucher and advance notice are required
+  verdict: HIT at rank 1
+    1. 0.8096  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0013-65dea688 <<<
+    2. 0.7433  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0014-a3a79f2e    
+    3. 0.7384  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0012-688eb513    
+    4. 0.7186  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0095-997042a7    
+    5. 0.7176  RF-LEAVE s.-           New York   RF-LEAVE#recursive-0022-394dc9b0    
+
+==============================================================================
+SEARCH-ONLY DUMP -- strategy: structure
+==============================================================================
+
+Q1: How many casual or sick leaves does an employee at the Bangalore office get in a calendar year?
+  expected: SS-HB-2025 section 9.2  [table row]
+  known answer: 15 casual/sick leaves per calendar year
+  verdict: HIT at rank 1
+    1. 0.8020  SS-HB-2025 s.9.2       India      SS-HB-2025#structure-0065-f71f3cbe <<<
+    2. 0.7249  SS-HB-2025 s.9.3       India      SS-HB-2025#structure-0066-0a3777d2    
+    3. 0.7141  SS-HB-2025 s.9.4       India      SS-HB-2025#structure-0067-1fd3d6b6    
+    4. 0.7136  SS-HB-2025 s.9.1       India      SS-HB-2025#structure-0064-d1ed24f0    
+    5. 0.7118  SS-HB-2025 s.-         India      SS-HB-2025#structure-0076-39c01c24    
+
+Q2: How many privilege leaves are listed for the Chennai office?
+  expected: SS-HB-2025 section 9.2  [table row]
+  known answer: 3 privilege leaves, at the discretion of the company
+  verdict: HIT at rank 1
+    1. 0.8005  SS-HB-2025 s.9.2       India      SS-HB-2025#structure-0065-f71f3cbe <<<
+    2. 0.7047  SS-HB-2025 s.-         India      SS-HB-2025#structure-0096-6a36b8cd    
+    3. 0.7017  SS-HB-2025 s.9.3       India      SS-HB-2025#structure-0066-0a3777d2    
+    4. 0.6976  SS-HB-2025 s.-         India      SS-HB-2025#structure-0075-9927f910    
+    5. 0.6934  SS-HB-2025 s.-         India      SS-HB-2025#structure-0076-39c01c24    
+
+Q3: What is the maximum number of vacation hours accrued per 80-hour pay period for Arizona university staff?
+  expected: USM-3-113 section 3-113.3  [table row]
+  known answer: 6.77 hours per 80-hour pay period
+  verdict: HIT at rank 1
+    1. 0.7647  USM-3-113 s.3-113.3    Arizona    USM-3-113#structure-0003-f2c9bf2e <<<
+    2. 0.7294  USM-3-113 s.3-113.1    Arizona    USM-3-113#structure-0001-f6903f8b    
+    3. 0.7054  USM-3-113 s.-          Arizona    USM-3-113#structure-0000-e5fbc692    
+    4. 0.6955  USM-3-113 s.3-113.5    Arizona    USM-3-113#structure-0005-20070404    
+    5. 0.6904  UM-FH-16 s.16.D.1      Michigan   UM-FH-16#structure-0019-cd71fab0    
+
+Q4: For non-technical staff, how many unused leaves can be carried over to the next year?
+  expected: SS-HB-2025 section 9.3
+  known answer: A maximum of nine leaves carry over; technical staff get encashment instead
+  verdict: HIT at rank 1
+    1. 0.7911  SS-HB-2025 s.9.3       India      SS-HB-2025#structure-0066-0a3777d2 <<<
+    2. 0.7295  USM-3-113 s.3-113.5    Arizona    USM-3-113#structure-0005-20070404    
+    3. 0.7019  SS-HB-2025 s.9.2       India      SS-HB-2025#structure-0065-f71f3cbe    
+    4. 0.6850  SS-HB-2025 s.9.1       India      SS-HB-2025#structure-0064-d1ed24f0    
+    5. 0.6812  SS-HB-2025 s.-         India      SS-HB-2025#structure-0075-9927f910    
+
+Q5: How many accrued vacation hours may Arizona staff carry forward each year?
+  expected: USM-3-113 section 3-113.5
+  known answer: Up to 320 accrued hours, prorated by FTE; excess is forfeited
+  verdict: HIT at rank 1
+    1. 0.7564  USM-3-113 s.3-113.5    Arizona    USM-3-113#structure-0005-20070404 <<<
+    2. 0.7025  USM-3-113 s.3-113.3    Arizona    USM-3-113#structure-0003-f2c9bf2e    
+    3. 0.6814  USM-3-113 s.3-113.7    Arizona    USM-3-113#structure-0007-b700c441    
+    4. 0.6765  USM-3-113 s.-          Arizona    USM-3-113#structure-0000-e5fbc692    
+    5. 0.6755  USM-3-113 s.3-113.1    Arizona    USM-3-113#structure-0001-f6903f8b    
+
+Q6: What is the maximum maternity leave, and how much of it may be taken before delivery?
+  expected: SS-HB-2025 section 9.8
+  known answer: 26 weeks maximum, of which 8 weeks may precede delivery
+  verdict: HIT at rank 1
+    1. 0.7263  SS-HB-2025 s.9.8       India      SS-HB-2025#structure-0072-19588086 <<<
+    2. 0.6989  RF-LEAVE s.-           New York   RF-LEAVE#structure-0142-e8c859ed    
+    3. 0.6924  RF-LEAVE s.-           New York   RF-LEAVE#structure-0027-d4cd2456    
+    4. 0.6740  RF-LEAVE s.-           New York   RF-LEAVE#structure-0050-11ad9b59    
+    5. 0.6737  RF-LEAVE s.-           New York   RF-LEAVE#structure-0056-456ca368    
+
+Q7: How many university-designated holidays do Michigan faculty receive, plus any floating holiday?
+  expected: UM-FH-16 section 16.D.1
+  known answer: Seven University-designated holidays plus one floating holiday
+  verdict: HIT at rank 2
+    1. 0.8109  UM-FH-16 s.16.A        Michigan   UM-FH-16#structure-0001-81ad5fc3    
+    2. 0.7753  UM-FH-16 s.16.D.1      Michigan   UM-FH-16#structure-0019-cd71fab0 <<<
+    3. 0.7334  UM-FH-16 s.16.D.2      Michigan   UM-FH-16#structure-0020-013bd28b    
+    4. 0.7150  UM-FH-16 s.16.D.3      Michigan   UM-FH-16#structure-0021-536e73a5    
+    5. 0.7091  UM-FH-16 s.16.C.3      Michigan   UM-FH-16#structure-0011-d03464e4    
+
+Q8: Do Research Foundation employees get paid for jury duty, and what documentation is required?
+  expected: RF-LEAVE section Jury Duty
+  known answer: Full pay for necessary time off; a jury duty voucher and advance notice are required
+  verdict: HIT at rank 1
+    1. 0.8108  RF-LEAVE s.-           New York   RF-LEAVE#structure-0018-80f2379b <<<
+    2. 0.7409  RF-LEAVE s.-           New York   RF-LEAVE#structure-0019-f537e395    
+    3. 0.7339  RF-LEAVE s.-           New York   RF-LEAVE#structure-0006-cd9b10e0    
+    4. 0.7202  UM-FH-16 s.16.C.5      Michigan   UM-FH-16#structure-0013-106fb59e    
+    5. 0.7141  RF-LEAVE s.-           New York   RF-LEAVE#structure-0024-e5b76538    
+
+==============================================================================
+HIT-IN-TOP-5 -- same 8 questions, same embedding model
+==============================================================================
+
+| Chunking strategy | Hit-in-top-5 |
+| --- | --- |
+| recursive | 8/8 |
+| structure | 8/8 |
+
+Per-question comparison:
+  qid   expected                    recursive    structure
+  Q1    SS-HB-2025 s.9.2               rank 1       rank 1
+  Q2    SS-HB-2025 s.9.2               rank 1       rank 1
+  Q3    USM-3-113 s.3-113.3            rank 1       rank 1
+  Q4    SS-HB-2025 s.9.3               rank 1       rank 1
+  Q5    USM-3-113 s.3-113.5            rank 1       rank 1
+  Q6    SS-HB-2025 s.9.8               rank 1       rank 1
+  Q7    UM-FH-16 s.16.D.1              rank 1       rank 2
+  Q8    RF-LEAVE s.Jury Duty           rank 1       rank 1

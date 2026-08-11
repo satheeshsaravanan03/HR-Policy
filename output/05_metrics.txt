@@ -1,0 +1,12 @@
+
+| Metric | recursive | structure |
+| --- | --- | --- |
+| hit@1 | 8/8 | 7/8 |
+| hit@3 | 8/8 | 8/8 |
+| hit@5 | 8/8 | 8/8 |
+| MRR | 1.000 | 0.938 |
+| top1_citable | 0/8 | 7/8 |
+| chunks carrying a section number | 0/345 (0.0%) | 125/330 (37.9%) |
+
+top1_citable = the rank-1 chunk carries a section number, so a citation
+can name the policy section rather than only the file.

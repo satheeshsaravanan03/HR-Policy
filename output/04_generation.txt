@@ -1,0 +1,130 @@
+==============================================================================
+PART 1 -- THREE ANSWERABLE QUESTIONS, CITED
+==============================================================================
+
+------------------------------------------------------------------------------
+Q4: For non-technical staff, how many unused leaves can be carried over to the next year?
+known-correct: A maximum of nine leaves carry over; technical staff get encashment instead (SS-HB-2025 section 9.3)
+
+ANSWER:
+For the non-technical team, if a certain number of leaves are not availed for the respective year, a maximum of nine leaves will be carried over to the next year [CITE: SS-HB-2025#structure-0066-0a3777d2].
+
+CITATIONS:
+  [resolves] SS-HB-2025#structure-0066-0a3777d2 -> SS-HB-2025 section 9.3
+  1 citations, 0 unresolved
+
+  SUPPORTING CHUNK SS-HB-2025#structure-0066-0a3777d2 (relevance 0.7911):
+      ### 9.3. LEAVES ENCASHMENT  
+      For Technical teams only, if certain numbers of leaves are not availed for the respective
+      year, those leaves shall be encashed equivalent to the day's salary.
+      For Non Technical team, if certain numbers of leaves are not availed for the respective
+      year then maximum of nine leaves will be carried over to the Next year.
+
+------------------------------------------------------------------------------
+Q1: How many casual or sick leaves does an employee at the Bangalore office get in a calendar year?
+known-correct: 15 casual/sick leaves per calendar year (SS-HB-2025 section 9.2)
+
+ANSWER:
+An employee at the Bangalore Office is entitled to 15 Casual/sick leaves in a calendar year [CITE: SS-HB-2025#structure-0065-f71f3cbe].
+
+CITATIONS:
+  [resolves] SS-HB-2025#structure-0065-f71f3cbe -> SS-HB-2025 section 9.2
+  1 citations, 0 unresolved
+
+  SUPPORTING CHUNK SS-HB-2025#structure-0065-f71f3cbe (relevance 0.8020):
+      ### 9.2. ANNUAL LEAVES  
+      a.   Total Leaves available to an employee in a calendar year shall be in accordance with
+      the table hereunder. Every month you will have one leave and in January, May and
+      September two leaves will be added.
+      Casual/sick
+      Privilege Leave(Only applies
+      when informed, at discretion
+      of the company)
+      Bangalore Office
+      15
+      3
+      Chennai Office
+      15
+      3
+      Privilege Leave - All employees with a total of three (03) years of experience
+      (irrespective of whether they have worked in the Company during those t
+
+------------------------------------------------------------------------------
+Q7: How many university-designated holidays do Michigan faculty receive, plus any floating holiday?
+known-correct: Seven University-designated holidays plus one floating holiday (UM-FH-16 section 16.D.1)
+
+ANSWER:
+Michigan faculty receive seven (7) University-designated holidays, plus one floating holiday per twelve month calendar year [CITE: UM-FH-16#structure-0001-81ad5fc3, UM-FH-16#structure-0019-cd71fab0].
+
+The seven designated holidays listed in the policy are [CITE: UM-FH-16#structure-0019-cd71fab0]:
+* New Year’s Day
+* Memorial Day
+* Independence Day
+* Labor Day
+* Thanksgiving Day
+* The day following Thanksgiving
+* Christmas
+
+CITATIONS:
+  [DOES NOT RESOLVE] UM-FH-16#structure-0001-81ad5fc3, UM-FH-16#structure-0019-cd71fab0 -> UNRESOLVED section -
+  [resolves] UM-FH-16#structure-0019-cd71fab0 -> UM-FH-16 section 16.D.1
+  2 citations, 1 unresolved
+
+  SUPPORTING CHUNK UM-FH-16#structure-0019-cd71fab0 (relevance 0.7753):
+      ## 16.D University Holidays and Closures/Vacation  
+      ### 16.D.1 Holidays (University-wide)  
+      Subject to certain regulations prescribed by the University, faculty members and staff are to be granted
+      time off work without loss of compensation in order to observe the following seven University-
+      designated holidays, plus one floating holiday:
+      New Year’s Day
+      Memorial Day
+      Independence Day
+      Labor Day
+      Thanksgiving Day
+      the day following Thanksgiving
+      Christmas
+      University-designated holidays will be observed on the calendar day on whic
+
+
+==============================================================================
+PART 2 -- THREE OUT-OF-CORPUS QUESTIONS, REFUSED
+==============================================================================
+
+------------------------------------------------------------------------------
+R1: What is Apple's parental leave entitlement for new parents?
+difficulty: hard - entity mismatch, high-similarity Apple chunks retrieved
+why unanswerable: Apple's Business Conduct Policy is in the corpus but defines no leave entitlement; its only mention of leave is an anti-retaliation clause. 'Parental leave' appears once, in the Michigan faculty handbook, which is a different employer.
+
+TRANSCRIPT:
+I cannot answer this from the indexed policy documents.
+Reason: the question names APPL-BCP, whose policy is indexed, but no APPL-BCP chunk discusses parental, leave, entitlement, parents; that topic appears only in RF-LEAVE.
+
+refused: True | gate: entity_mismatch
+  top-1 relevance was 0.6827 from RF-LEAVE -- note that a similarity
+  threshold alone would not have caught this.
+
+------------------------------------------------------------------------------
+R2: What is the gratuity payout formula for a Soft Suave employee on resignation?
+difficulty: hard - topically adjacent, correct document retrieved
+why unanswerable: Soft Suave's separation policy (section 8) covers notice period, clearance and full-and-final settlement including Provident Fund, but 'gratuity' appears nowhere in the corpus.
+
+TRANSCRIPT:
+I cannot answer this from the indexed policy documents.
+Reason: no document contains formula, gratuity, payout.
+
+refused: True | gate: absent_from_corpus
+  top-1 relevance was 0.7347 from SS-HB-2025 -- note that a similarity
+  threshold alone would not have caught this.
+
+------------------------------------------------------------------------------
+R3: What is the annual tuition reimbursement cap for employees?
+difficulty: baseline - no adjacent content anywhere
+why unanswerable: 'Tuition reimbursement' is absent from all six documents.
+
+TRANSCRIPT:
+I cannot answer this from the indexed policy documents.
+Reason: no document contains tuition.
+
+refused: True | gate: absent_from_corpus
+  top-1 relevance was 0.6652 from USM-3-113 -- note that a similarity
+  threshold alone would not have caught this.

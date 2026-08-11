@@ -1,0 +1,28 @@
+
+==============================================================================
+QUERY: How many days of unused leave can I carry over to next year?
+FILTER: region = 'India'
+==============================================================================
+
+UNFILTERED (top-5):
+  #  score    policy_id    section   region      chunk_id
+  1  0.7430   USM-3-113    3-113.5   Arizona     USM-3-113#structure-0005-20070404
+  2  0.7059   SS-HB-2025   9.3       India       SS-HB-2025#structure-0066-0a3777d2
+  3  0.6812   RF-LEAVE     -         New York    RF-LEAVE#structure-0056-456ca368
+  4  0.6624   RF-LEAVE     -         New York    RF-LEAVE#structure-0162-da69e5d6
+  5  0.6616   USM-3-113    3-113.3   Arizona     USM-3-113#structure-0003-f2c9bf2e
+
+FILTERED region=India (top-5):
+  #  score    policy_id    section   region      chunk_id
+  1  0.7059   SS-HB-2025   9.3       India       SS-HB-2025#structure-0066-0a3777d2
+  2  0.6521   SS-HB-2025   9.2       India       SS-HB-2025#structure-0065-f71f3cbe
+  3  0.6489   SS-HB-2025   -         India       SS-HB-2025#structure-0075-9927f910
+  4  0.6425   SS-HB-2025   9.1       India       SS-HB-2025#structure-0064-d1ed24f0
+  5  0.6366   SS-HB-2025   9.7       India       SS-HB-2025#structure-0071-07a545f1
+
+  top-1 unfiltered: USM-3-113 s.3-113.5 (region Arizona)
+  top-1 filtered:   SS-HB-2025 s.9.3 (region India)
+  TOP-1 CHANGED: True
+
+  Why this matters: an employee in the filtered region would have been
+  shown another jurisdiction's entitlement as their own.

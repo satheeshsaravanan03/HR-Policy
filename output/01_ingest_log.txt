@@ -1,0 +1,40 @@
+=== PHASE 2: the 5-document drop [recursive] ===
+  [recursive] files already present: 1 | new files: 5
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    quota hit, waiting 65.0s then retrying batch
+    embedded 40/352
+    embedded 80/352
+    quota hit, waiting 65.0s then retrying batch
+    embedded 120/352
+    embedded 160/352
+    embedded 200/352
+    quota hit, waiting 65.0s then retrying batch
+    embedded 240/352
+    embedded 280/352
+    quota hit, waiting 65.0s then retrying batch
+    embedded 320/352
+    embedded 352/352
+  added 352 chunks from 5 new files
+
+=== PHASE 2: the 5-document drop [structure] ===
+  [structure] files already present: 1 | new files: 5
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    quota hit, waiting 65.0s then retrying batch
+    embedded 40/316
+    embedded 80/316
+    quota hit, waiting 65.0s then retrying batch
+    embedded 120/316
+    embedded 160/316
+    quota hit, waiting 65.0s then retrying batch
+    embedded 200/316
+    embedded 240/316
+    quota hit, waiting 65.0s then retrying batch
+    embedded 280/316
+    embedded 316/316
+  added 316 chunks from 5 new files
+
+=== FINAL COLLECTION STATS ===
+  recursive  {'chunks': 484, 'documents': 6, 'chunks_missing_source_file': 0}
+  structure  {'chunks': 433, 'documents': 6, 'chunks_missing_source_file': 0}
+
+  every chunk carries source_file (requirement 1 satisfied)
