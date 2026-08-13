@@ -185,16 +185,18 @@ def _citations(text: str, hits: list[Hit]) -> list[Citation]:
     by_id = {h.chunk_id: h for h in hits}
     found: list[Citation] = []
     for raw in re.findall(r"\[CITE:\s*([^\]]+)\]", text):
-        chunk_id = raw.strip()
-        hit = by_id.get(chunk_id)
-        found.append(
-            Citation(
-                chunk_id=chunk_id,
-                policy_id=hit.policy_id if hit else "UNRESOLVED",
-                section=hit.section if hit else "",
-                resolves=hit is not None,
+        for chunk_id in (item.strip() for item in raw.split(",")):
+            if not chunk_id:
+                continue
+            hit = by_id.get(chunk_id)
+            found.append(
+                Citation(
+                    chunk_id=chunk_id,
+                    policy_id=hit.policy_id if hit else "UNRESOLVED",
+                    section=hit.section if hit else "",
+                    resolves=hit is not None,
+                )
             )
-        )
     return found
 
 
