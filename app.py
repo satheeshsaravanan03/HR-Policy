@@ -21,7 +21,7 @@ from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
 from rag.manifest import DOCUMENTS  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
-from rag.retrieve import search  # noqa: E402
+from rag.retrieve import HYBRID, SEARCH_METHODS, SEMANTIC, search  # noqa: E402
 
 st.set_page_config(page_title="HR Policy RAG", page_icon="📄", layout="wide")
 
@@ -99,6 +99,18 @@ with st.sidebar:
         disabled=mode == "Compare both chunkers",
     )
 
+    search_method = st.selectbox(
+        "Search method",
+        SEARCH_METHODS,
+        index=SEARCH_METHODS.index(SEMANTIC),
+        format_func=lambda value: {
+            SEMANTIC: "Semantic (vector baseline)",
+            "bm25": "Keyword (BM25)",
+            HYBRID: "Hybrid (semantic + BM25, RRF)",
+        }[value],
+        help="Hybrid combines semantic and keyword rankings with reciprocal-rank fusion.",
+    )
+
     region_choice = st.selectbox("Region filter", REGIONS)
     region = None if region_choice == "(no filter)" else region_choice
 
@@ -106,8 +118,8 @@ with st.sidebar:
 
     st.divider()
     st.caption(
-        "Free-tier Gemini quota is tight. Search-only avoids generation calls; "
-        "each search still costs one query embedding."
+        "Search-only avoids generation calls. Semantic and hybrid searches create "
+        "one query embedding; BM25 runs locally over stored chunk text."
     )
 
 # ----------------------------------------------------------------- presets
@@ -185,14 +197,14 @@ if not ((submitted or autorun) and query.strip()):
 # ----------------------------------------------------------------- results
 
 
-def render_compare(query: str, region, top_k: int) -> None:
-    st.subheader("Same question, same embedding model, different chunker")
+def render_compare(query: str, region, top_k: int, search_method: str) -> None:
+    st.subheader("Same question, same search method, different chunker")
     left, right = st.columns(2)
     for column, name in ((left, STRUCTURE), (right, RECURSIVE)):
         with column:
             st.markdown(f"### `{name}`")
             with st.spinner("searching"):
-                hits = search(name, query, top_k=top_k, region=region)
+                hits = search(name, query, top_k=top_k, region=region, method=search_method)
             citable = sum(1 for h in hits if h.section)
             st.metric("Results citable to a section", f"{citable}/{len(hits)}")
             show_hits(hits)
@@ -203,16 +215,16 @@ def render_compare(query: str, region, top_k: int) -> None:
     )
 
 
-def render_search(query: str, strategy: str, region, top_k: int) -> None:
+def render_search(query: str, strategy: str, region, top_k: int, search_method: str) -> None:
     st.subheader("Retrieved chunks")
     with st.spinner("searching"):
-        hits = search(strategy, query, top_k=top_k, region=region)
+        hits = search(strategy, query, top_k=top_k, region=region, method=search_method)
     show_hits(hits, f"strategy={strategy}" + (f" · region={region}" if region else ""))
 
 
-def render_answer(query: str, strategy: str, region, top_k: int) -> None:
+def render_answer(query: str, strategy: str, region, top_k: int, search_method: str) -> None:
     with st.spinner("retrieving and generating"):
-        result = answer(strategy, query, top_k=top_k, region=region)
+        result = answer(strategy, query, top_k=top_k, region=region, method=search_method)
 
     if result.is_refusal:
         st.error(f"**Refused** — gate: `{result.gate}`")
@@ -258,11 +270,11 @@ def render_answer(query: str, strategy: str, region, top_k: int) -> None:
 
 try:
     if mode == "Compare both chunkers":
-        render_compare(query, region, top_k)
+        render_compare(query, region, top_k, search_method)
     elif mode == "Search only":
-        render_search(query, strategy, region, top_k)
+        render_search(query, strategy, region, top_k, search_method)
     else:
-        render_answer(query, strategy, region, top_k)
+        render_answer(query, strategy, region, top_k, search_method)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed
     if not quota_notice(exc):
         raise

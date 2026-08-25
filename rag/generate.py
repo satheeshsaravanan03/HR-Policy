@@ -33,7 +33,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .loader import load_document
 from .manifest import DOCUMENTS, document_paths
-from .retrieve import TOP_K, Hit, search
+from .retrieve import SEMANTIC, TOP_K, Hit, search
 
 # An alias rather than a pinned version: gemini-2.5-flash returns 404 for keys
 # created recently ("no longer available to new users"), even though it is still
@@ -117,7 +117,13 @@ def refusal_check(query: str, hits: list[Hit]) -> tuple[bool, str, str]:
     if not hits:
         return True, "no_results", "retrieval returned nothing"
 
-    top = hits[0].score
+    # RRF and BM25 scores are rank/term-frequency scores, so they cannot be
+    # compared with the calibrated 0--1 semantic relevance floor. Hybrid
+    # retrieval retains its semantic candidates; use their strongest relevance
+    # score for this safety gate rather than accidentally treating 0.03 RRF as
+    # evidence of irrelevance.
+    semantic_scores = [h.semantic_score for h in hits if h.semantic_score is not None]
+    top = max(semantic_scores) if semantic_scores else hits[0].score
     if top < RELEVANCE_FLOOR:
         return (
             True,
@@ -223,11 +229,23 @@ def response_text(content) -> str:
     return str(content)
 
 
-def answer(strategy: str, query: str, top_k: int = TOP_K, region: str | None = None) -> Answer:
+def answer(
+    strategy: str,
+    query: str,
+    top_k: int = TOP_K,
+    region: str | None = None,
+    method: str = SEMANTIC,
+) -> Answer:
     """Retrieve, gate, and only then generate."""
-    hits = search(strategy, query, top_k=top_k, region=region)
+    hits = search(strategy, query, top_k=top_k, region=region, method=method)
 
-    refuse, gate, reason = refusal_check(query, hits)
+    # BM25/RRF scores are not semantic relevance values. Keep the existing
+    # relevance safety calibration on a semantic probe while using the selected
+    # retrieval method as the actual generation context.
+    safety_hits = hits
+    if method != SEMANTIC and not any(h.semantic_score is not None for h in hits):
+        safety_hits = search(strategy, query, top_k=top_k, region=region, method=SEMANTIC)
+    refuse, gate, reason = refusal_check(query, safety_hits)
     if refuse:
         return Answer(
             query=query,

@@ -130,6 +130,31 @@ The `section` column is the thing to watch: `structure` reports `9.3`, while
 `recursive` reports `-` for every result. Both find the right text; only one can
 cite where it came from.
 
+### Compare retrieval methods (Week 4)
+
+Semantic search is the original vector-search baseline. BM25 searches exact
+terms in the same chunks already stored in Chroma. Hybrid search retrieves from
+both and combines their ranks with Reciprocal Rank Fusion (RRF); it does not
+re-embed the corpus.
+
+```powershell
+# original baseline
+python scripts/ask.py --search --search-method semantic "USM 3-113.5 carry forward cap"
+
+# exact term search
+python scripts/ask.py --search --search-method bm25 "USM 3-113.5 carry forward cap"
+
+# the single Week 4 improvement
+python scripts/ask.py --search --search-method hybrid "USM 3-113.5 carry forward cap"
+
+# reproducible before/after hit-rate@3 and MRR report
+python scripts/06_week4_evaluate.py
+```
+
+The Streamlit sidebar has the same **Search method** selector. Semantic remains
+the default until the before/after report demonstrates that hybrid retrieval is
+better on the pre-registered challenge set.
+
 ### See the region filter change the answer
 
 ```powershell

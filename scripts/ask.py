@@ -5,6 +5,7 @@
     python scripts/ask.py --search "carry over cap"        # retrieval only
     python scripts/ask.py --region India "carry over cap"
     python scripts/ask.py --strategy recursive "carry over cap"
+    python scripts/ask.py --search-method hybrid "USM 3-113.5"
 
 --search performs no generation, so it spends no generation quota and shows
 exactly what the retriever found, which is usually what you want when
@@ -20,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
-from rag.retrieve import search  # noqa: E402
+from rag.retrieve import SEARCH_METHODS, SEMANTIC, search  # noqa: E402
 
 
 # Someone at the '>' prompt pasting the whole shell command instead of just the
@@ -57,15 +58,20 @@ def run(query: str, args) -> None:
     print(f"\nQ: {query}")
 
     if args.search:
-        hits = search(args.strategy, query, top_k=args.k, region=args.region)
+        hits = search(
+            args.strategy, query, top_k=args.k, region=args.region, method=args.search_method
+        )
         print(f"\nRETRIEVED (strategy={args.strategy}"
+              f", method={args.search_method}"
               f"{f', region={args.region}' if args.region else ''}):")
         show_hits(hits)
         if hits and args.show_text:
             print(f"\nTOP CHUNK TEXT:\n{hits[0].content[:800]}")
         return
 
-    result = answer(args.strategy, query, top_k=args.k, region=args.region)
+    result = answer(
+        args.strategy, query, top_k=args.k, region=args.region, method=args.search_method
+    )
     print(f"\nA: {result.text}")
 
     if result.is_refusal:
@@ -85,6 +91,12 @@ def main() -> None:
     parser.add_argument("query", nargs="*", help="question; omit for interactive mode")
     parser.add_argument("--strategy", choices=[STRUCTURE, RECURSIVE], default=STRUCTURE)
     parser.add_argument("--region", default=None, help="e.g. India, Arizona, Michigan")
+    parser.add_argument(
+        "--search-method",
+        choices=SEARCH_METHODS,
+        default=SEMANTIC,
+        help="semantic baseline, exact-term BM25, or semantic+BM25 hybrid RRF",
+    )
     parser.add_argument("-k", type=int, default=5, help="how many chunks to retrieve")
     parser.add_argument("--search", action="store_true", help="retrieval only, no generation")
     parser.add_argument("--show-text", action="store_true", help="print the top chunk's text")
@@ -95,7 +107,7 @@ def main() -> None:
         return
 
     print("HR policy RAG. Type a question, or 'quit' to exit.")
-    print(f"strategy={args.strategy} region={args.region or 'none'} "
+    print(f"strategy={args.strategy} search-method={args.search_method} region={args.region or 'none'} "
           f"mode={'search-only' if args.search else 'generate'}")
     while True:
         try:
