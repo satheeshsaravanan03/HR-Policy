@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
-from rag.retrieve import SEARCH_METHODS, SEMANTIC, search  # noqa: E402
+from rag.retrieve import RERANK_OPTIONS, RERANK_OFF, SEARCH_METHODS, SEMANTIC, search  # noqa: E402
 
 
 # Someone at the '>' prompt pasting the whole shell command instead of just the
@@ -59,10 +59,11 @@ def run(query: str, args) -> None:
 
     if args.search:
         hits = search(
-            args.strategy, query, top_k=args.k, region=args.region, method=args.search_method
+            args.strategy, query, top_k=args.k, region=args.region, method=args.search_method,
+            rerank=args.rerank,
         )
         print(f"\nRETRIEVED (strategy={args.strategy}"
-              f", method={args.search_method}"
+              f", method={args.search_method}, reranking={args.rerank}"
               f"{f', region={args.region}' if args.region else ''}):")
         show_hits(hits)
         if hits and args.show_text:
@@ -70,7 +71,8 @@ def run(query: str, args) -> None:
         return
 
     result = answer(
-        args.strategy, query, top_k=args.k, region=args.region, method=args.search_method
+        args.strategy, query, top_k=args.k, region=args.region, method=args.search_method,
+        rerank=args.rerank,
     )
     print(f"\nA: {result.text}")
 
@@ -97,6 +99,12 @@ def main() -> None:
         default=SEMANTIC,
         help="semantic baseline, exact-term BM25, or semantic+BM25 hybrid RRF",
     )
+    parser.add_argument(
+        "--rerank",
+        choices=RERANK_OPTIONS,
+        default=RERANK_OFF,
+        help="optional local cross-encoder reranking of the top 20 candidates",
+    )
     parser.add_argument("-k", type=int, default=5, help="how many chunks to retrieve")
     parser.add_argument("--search", action="store_true", help="retrieval only, no generation")
     parser.add_argument("--show-text", action="store_true", help="print the top chunk's text")
@@ -107,7 +115,7 @@ def main() -> None:
         return
 
     print("HR policy RAG. Type a question, or 'quit' to exit.")
-    print(f"strategy={args.strategy} search-method={args.search_method} region={args.region or 'none'} "
+    print(f"strategy={args.strategy} search-method={args.search_method} reranking={args.rerank} region={args.region or 'none'} "
           f"mode={'search-only' if args.search else 'generate'}")
     while True:
         try:

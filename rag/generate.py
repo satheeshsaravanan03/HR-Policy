@@ -26,19 +26,19 @@ that catches a topic the corpus discusses only for a different organisation.
 from __future__ import annotations
 
 import functools
+import os
 import re
 from dataclasses import dataclass, field
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 
 from .loader import load_document
 from .manifest import DOCUMENTS, document_paths
-from .retrieve import SEMANTIC, TOP_K, Hit, search
+from .retrieve import RERANK_OFF, SEMANTIC, TOP_K, Hit, search
 
-# An alias rather than a pinned version: gemini-2.5-flash returns 404 for keys
-# created recently ("no longer available to new users"), even though it is still
-# listed by models.list().
-GENERATION_MODEL = "gemini-flash-latest"
+# Groq is used only after local retrieval, gating, and optional local reranking.
+# Set GROQ_GENERATION_MODEL in .env to use another model your account exposes.
+GENERATION_MODEL = os.environ.get("GROQ_GENERATION_MODEL", "openai/gpt-oss-120b")
 
 # Below this top-1 relevance nothing in the corpus is close enough to ground
 # an answer. Calibrated against the 8 known-answer questions.
@@ -235,16 +235,17 @@ def answer(
     top_k: int = TOP_K,
     region: str | None = None,
     method: str = SEMANTIC,
+    rerank: str = RERANK_OFF,
 ) -> Answer:
     """Retrieve, gate, and only then generate."""
-    hits = search(strategy, query, top_k=top_k, region=region, method=method)
+    hits = search(strategy, query, top_k=top_k, region=region, method=method, rerank=rerank)
 
     # BM25/RRF scores are not semantic relevance values. Keep the existing
     # relevance safety calibration on a semantic probe while using the selected
     # retrieval method as the actual generation context.
     safety_hits = hits
     if method != SEMANTIC and not any(h.semantic_score is not None for h in hits):
-        safety_hits = search(strategy, query, top_k=top_k, region=region, method=SEMANTIC)
+        safety_hits = search(strategy, query, top_k=top_k, region=region, method=SEMANTIC, rerank=rerank)
     refuse, gate, reason = refusal_check(query, safety_hits)
     if refuse:
         return Answer(
@@ -259,7 +260,7 @@ def answer(
             hits=hits,
         )
 
-    llm = ChatGoogleGenerativeAI(model=GENERATION_MODEL, temperature=0.0)
+    llm = ChatGroq(model=GENERATION_MODEL, temperature=0.0, max_retries=2)
     response = llm.invoke(
         [
             ("system", SYSTEM_PROMPT),

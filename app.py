@@ -21,20 +21,58 @@ from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
 from rag.manifest import DOCUMENTS  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
-from rag.retrieve import HYBRID, SEARCH_METHODS, SEMANTIC, search  # noqa: E402
+from rag.retrieve import (  # noqa: E402
+    HYBRID,
+    RERANK_LOCAL,
+    RERANK_OFF,
+    RERANK_OPTIONS,
+    SEARCH_METHODS,
+    SEMANTIC,
+    search,
+)
 
 st.set_page_config(page_title="HR Policy RAG", page_icon="📄", layout="wide")
 
 REGIONS = ["(no filter)"] + sorted({d.region for d in DOCUMENTS})
 
 
-def quota_notice(exc: Exception) -> bool:
-    """Turn a free-tier quota error into an explanation instead of a traceback."""
+def provider_notice(exc: Exception) -> bool:
+    """Explain expected provider failures instead of showing a traceback."""
     text = str(exc)
-    if "RESOURCE_EXHAUSTED" not in text and "429" not in text:
+    if "GROQ_API_KEY" in text or "XAI_API_KEY" in text or "GOOGLE_API_KEY" in text or "GEMINI_API_KEY" in text or "API key required" in text:
+        st.error("The generation-provider API key is missing or invalid.")
+        st.markdown(
+            "Add `GROQ_API_KEY=your_groq_key` to the project's `.env` file, then "
+            "restart Streamlit. **Search only** continues to work without a key."
+        )
+        return True
+
+    if "UNAVAILABLE" in text or "503" in text or "high demand" in text.lower():
+        st.warning("Groq is temporarily busy. Your policy search completed, but answer generation did not.")
+        st.markdown(
+            "Wait a short time and run the question again, or switch to **Search only** "
+            "to view the retrieved policy chunks without using Groq."
+        )
+        return True
+
+    if "model_not_found" in text or "does not exist" in text.lower():
+        st.error("The configured Groq model is unavailable for this API key.")
+        st.markdown(
+            "Update `GROQ_GENERATION_MODEL` in `.env` to a model enabled for your "
+            "Groq account, then restart Streamlit. The currently tested model is "
+            "`openai/gpt-oss-120b`."
+        )
+        return True
+
+    if "429" in text and "RESOURCE_EXHAUSTED" not in text:
+        st.warning("Groq rate limit reached. Your policy search completed, but answer generation did not.")
+        st.markdown("Wait a moment and retry, or switch to **Search only** to inspect the local results.")
+        return True
+
+    if "RESOURCE_EXHAUSTED" not in text:
         return False
     per_day = "PerDay" in text or "limit: 1000" in text
-    st.error("Gemini free-tier embedding quota exhausted.")
+    st.error("The provider embedding quota is exhausted.")
     if per_day:
         st.markdown(
             "This is the **daily** cap — 1000 embed requests per day for "
@@ -54,8 +92,11 @@ def quota_notice(exc: Exception) -> bool:
 def hit_rows(hits) -> list[dict]:
     return [
         {
-            "#": h.rank,
-            "score": round(h.score, 4),
+            "final rank": h.rank,
+            "reranker score": round(h.rerank_score, 4) if h.rerank_score is not None else "-",
+            "original rank": h.retrieval_rank if h.retrieval_rank is not None else "-",
+            "original score": round(h.retrieval_score, 4) if h.retrieval_score is not None else "-",
+            "retrieval score": round(h.score, 4) if h.rerank_score is None else "-",
             "policy_id": h.policy_id,
             "section": h.section or "—",
             "region": h.region,
@@ -109,6 +150,16 @@ with st.sidebar:
             HYBRID: "Hybrid (semantic + BM25, RRF)",
         }[value],
         help="Hybrid combines semantic and keyword rankings with reciprocal-rank fusion.",
+    )
+
+    rerank = st.selectbox(
+        "Reranking",
+        RERANK_OPTIONS,
+        format_func=lambda value: {
+            RERANK_OFF: "Off (retriever order)",
+            RERANK_LOCAL: "Local cross-encoder (recommended)",
+        }[value],
+        help="Locally rescores the top 20 retrieved chunks. No Groq API key or quota is used.",
     )
 
     region_choice = st.selectbox("Region filter", REGIONS)
@@ -197,14 +248,14 @@ if not ((submitted or autorun) and query.strip()):
 # ----------------------------------------------------------------- results
 
 
-def render_compare(query: str, region, top_k: int, search_method: str) -> None:
+def render_compare(query: str, region, top_k: int, search_method: str, rerank: str) -> None:
     st.subheader("Same question, same search method, different chunker")
     left, right = st.columns(2)
     for column, name in ((left, STRUCTURE), (right, RECURSIVE)):
         with column:
             st.markdown(f"### `{name}`")
             with st.spinner("searching"):
-                hits = search(name, query, top_k=top_k, region=region, method=search_method)
+                hits = search(name, query, top_k=top_k, region=region, method=search_method, rerank=rerank)
             citable = sum(1 for h in hits if h.section)
             st.metric("Results citable to a section", f"{citable}/{len(hits)}")
             show_hits(hits)
@@ -215,16 +266,16 @@ def render_compare(query: str, region, top_k: int, search_method: str) -> None:
     )
 
 
-def render_search(query: str, strategy: str, region, top_k: int, search_method: str) -> None:
+def render_search(query: str, strategy: str, region, top_k: int, search_method: str, rerank: str) -> None:
     st.subheader("Retrieved chunks")
     with st.spinner("searching"):
-        hits = search(strategy, query, top_k=top_k, region=region, method=search_method)
+        hits = search(strategy, query, top_k=top_k, region=region, method=search_method, rerank=rerank)
     show_hits(hits, f"strategy={strategy}" + (f" · region={region}" if region else ""))
 
 
-def render_answer(query: str, strategy: str, region, top_k: int, search_method: str) -> None:
+def render_answer(query: str, strategy: str, region, top_k: int, search_method: str, rerank: str) -> None:
     with st.spinner("retrieving and generating"):
-        result = answer(strategy, query, top_k=top_k, region=region, method=search_method)
+        result = answer(strategy, query, top_k=top_k, region=region, method=search_method, rerank=rerank)
 
     if result.is_refusal:
         st.error(f"**Refused** — gate: `{result.gate}`")
@@ -270,11 +321,11 @@ def render_answer(query: str, strategy: str, region, top_k: int, search_method: 
 
 try:
     if mode == "Compare both chunkers":
-        render_compare(query, region, top_k, search_method)
+        render_compare(query, region, top_k, search_method, rerank)
     elif mode == "Search only":
-        render_search(query, strategy, region, top_k, search_method)
+        render_search(query, strategy, region, top_k, search_method, rerank)
     else:
-        render_answer(query, strategy, region, top_k, search_method)
+        render_answer(query, strategy, region, top_k, search_method, rerank)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed
-    if not quota_notice(exc):
+    if not provider_notice(exc):
         raise

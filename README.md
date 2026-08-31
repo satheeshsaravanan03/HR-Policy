@@ -26,22 +26,25 @@ The two backends live in separate Chroma collections (`structure` vs
 768 — and are not interchangeable. Switching backends never invalidates the other
 index.
 
-Generation still uses Gemini Flash, which has its own separate quota. Retrieval
-never touches the network on the local backend, so `--search` mode is entirely
-free and offline.
+Generation uses a Groq-hosted chat model, which has its own API access and limits.
+Retrieval never touches the network on the local backend, so `--search` mode is
+entirely free and offline.
 
 ## Prerequisites
 
 Already done on this machine, listed for a fresh setup:
 
 ```powershell
-python -m pip install langchain langchain-text-splitters langchain-google-genai langchain-chroma chromadb pymupdf python-dotenv
+python -m pip install langchain langchain-text-splitters langchain-google-genai langchain-xai langchain-chroma chromadb pymupdf python-dotenv fastembed
 ```
 
-A free Gemini API key from https://aistudio.google.com/apikey, placed in `.env`:
+A Groq API key, placed in `.env`, is needed only for the **Ask** mode's
+final answer generation. Retrieval and reranking are local by default:
 
 ```
-GOOGLE_API_KEY=your_key_here
+GROQ_API_KEY=your_groq_key_here
+# Optional; defaults to openai/gpt-oss-120b
+GROQ_GENERATION_MODEL=openai/gpt-oss-120b
 ```
 
 The index is already built (`chroma/`, 21 MB), so you can query immediately.
@@ -147,6 +150,10 @@ python scripts/ask.py --search --search-method bm25 "USM 3-113.5 carry forward c
 # the single Week 4 improvement
 python scripts/ask.py --search --search-method hybrid "USM 3-113.5 carry forward cap"
 
+# locally rerank the top 20 candidates before returning the final results
+# (no Gemini key, quota, or API call)
+python scripts/ask.py --search --search-method hybrid --rerank local "USM 3-113.5 carry forward cap"
+
 # reproducible before/after hit-rate@3 and MRR report
 python scripts/06_week4_evaluate.py
 ```
@@ -154,6 +161,15 @@ python scripts/06_week4_evaluate.py
 The Streamlit sidebar has the same **Search method** selector. Semantic remains
 the default until the before/after report demonstrates that hybrid retrieval is
 better on the pre-registered challenge set.
+
+### Optional local reranking
+
+The sidebar's **Reranking** selector applies a local FastEmbed cross-encoder to
+the top 20 candidates returned by the selected search method, then returns the
+best `top-k` chunks. It works in Ask, Search only, and Compare both chunkers.
+Choose **Local cross-encoder** to use it; the first use downloads the model once
+and later queries run locally. This improves ordering precision without relying
+on Gemini. Leave it **Off** to retain the unmodified retrieval baseline.
 
 ### See the region filter change the answer
 

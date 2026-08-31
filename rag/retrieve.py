@@ -28,11 +28,15 @@ SEMANTIC = "semantic"
 BM25 = "bm25"
 HYBRID = "hybrid"
 SEARCH_METHODS = (SEMANTIC, BM25, HYBRID)
+RERANK_OFF = "off"
+RERANK_LOCAL = "local"
+RERANK_OPTIONS = (RERANK_OFF, RERANK_LOCAL)
 
 # RRF uses rank positions rather than mixing incompatible vector and BM25
 # score scales. 60 is the conventional constant from the original RRF paper.
 RRF_K = 60
 FUSION_CANDIDATES = 20
+RERANK_CANDIDATES = 20
 TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9._-]*", re.I)
 
 
@@ -49,6 +53,9 @@ class Hit:
     semantic_score: float | None = None
     bm25_score: float | None = None
     rrf_score: float | None = None
+    rerank_score: float | None = None
+    retrieval_rank: int | None = None
+    retrieval_score: float | None = None
 
     def label(self) -> str:
         section = self.section or "-"
@@ -88,6 +95,7 @@ def search(
     top_k: int = TOP_K,
     region: str | None = None,
     method: str = SEMANTIC,
+    rerank: str = RERANK_OFF,
 ) -> list[Hit]:
     """Retrieve chunks using semantic, BM25, or hybrid RRF search.
 
@@ -98,12 +106,21 @@ def search(
     """
     if method not in SEARCH_METHODS:
         raise ValueError(f"unknown search method {method!r}; use one of {SEARCH_METHODS}")
+    if rerank not in RERANK_OPTIONS:
+        raise ValueError(f"unknown reranker {rerank!r}; use one of {RERANK_OPTIONS}")
 
+    candidate_count = max(RERANK_CANDIDATES, top_k) if rerank == RERANK_LOCAL else top_k
     if method == SEMANTIC:
-        return _semantic_search(strategy, query, top_k, region)
-    if method == BM25:
-        return _bm25_search(strategy, query, top_k, region)
-    return _hybrid_search(strategy, query, top_k, region)
+        hits = _semantic_search(strategy, query, candidate_count, region)
+    elif method == BM25:
+        hits = _bm25_search(strategy, query, candidate_count, region)
+    else:
+        hits = _hybrid_search(strategy, query, candidate_count, region)
+    if rerank == RERANK_LOCAL:
+        from .rerank import rerank as local_rerank
+
+        return local_rerank(query, hits, top_k)
+    return hits
 
 
 def _hit(doc, rank: int, score: float, **scores) -> Hit:
