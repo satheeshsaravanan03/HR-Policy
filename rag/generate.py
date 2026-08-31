@@ -35,6 +35,7 @@ from langchain_groq import ChatGroq
 from .loader import load_document
 from .manifest import DOCUMENTS, document_paths
 from .retrieve import RERANK_OFF, SEMANTIC, TOP_K, Hit, search
+from .tracing import write_trace
 
 # Groq is used only after local retrieval, gating, and optional local reranking.
 # Set GROQ_GENERATION_MODEL in .env to use another model your account exposes.
@@ -248,7 +249,7 @@ def answer(
         safety_hits = search(strategy, query, top_k=top_k, region=region, method=SEMANTIC, rerank=rerank)
     refuse, gate, reason = refusal_check(query, safety_hits)
     if refuse:
-        return Answer(
+        result = Answer(
             query=query,
             text=(
                 "I cannot answer this from the indexed policy documents.\n"
@@ -259,6 +260,12 @@ def answer(
             gate=gate,
             hits=hits,
         )
+        write_trace(
+            query=query, hits=hits, output=result.text, refused=True, gate=gate,
+            model=GENERATION_MODEL, temperature=0.0, method=method,
+            strategy=strategy, rerank=rerank,
+        )
+        return result
 
     llm = ChatGroq(model=GENERATION_MODEL, temperature=0.0, max_retries=2)
     response = llm.invoke(
@@ -269,10 +276,16 @@ def answer(
     )
     text = response_text(response.content)
 
-    return Answer(
+    result = Answer(
         query=query,
         text=text,
         is_refusal=False,
         hits=hits,
         citations=_citations(text, hits),
     )
+    write_trace(
+        query=query, hits=hits, output=result.text, refused=False,
+        model=GENERATION_MODEL, temperature=0.0, method=method,
+        strategy=strategy, rerank=rerank,
+    )
+    return result
