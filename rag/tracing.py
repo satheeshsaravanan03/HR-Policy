@@ -15,7 +15,12 @@ _LOCK = threading.Lock()
 
 # Conservative redaction for common employee identifiers before disk write.
 _EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
-_EMPLOYEE_ID = re.compile(r"\b(?:employee|emp|staff|worker)[ _-]?(?:id|no|number)?\s*[:#-]?\s*[A-Z0-9-]{3,}\b", re.I)
+# Require an explicit identifier marker; do not redact ordinary phrases such
+# as "employee at Bangalore" or "staff can work remotely".
+_EMPLOYEE_ID = re.compile(
+    r"\b(?:employee|emp|staff|worker)[ _-]?(?:id|no|number)\s*[:#-]?\s*[A-Z0-9-]{3,}\b",
+    re.I,
+)
 
 
 def redact(value: str) -> str:
@@ -71,4 +76,3 @@ def write_trace(
     with _LOCK, TRACE_PATH.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
     return trace_id
-

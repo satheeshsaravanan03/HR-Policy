@@ -47,8 +47,9 @@ RELEVANCE_FLOOR = 0.30
 
 STOPWORDS = frozenset(
     """a an and are as at be by can do does for from get gets how i if in is it its
-    many much of on or our per required s that the their there they this to under
-    upon was what when where which who whose will with you your""".split()
+    listed happens above below many much of on or our per required s that the
+    their there they this to under upon was what when where which who whose will
+    with you your""".split()
 )
 
 # Organisation names a question may name, mapped to the policy that speaks for
