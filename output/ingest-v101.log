@@ -1,0 +1,32 @@
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+
+=== PHASE 1: base handbook only [recursive] ===
+  [recursive] files already present: 0 | new files: 1
+    embedded 40/132
+    embedded 80/132
+    embedded 120/132
+    embedded 132/132
+
+=== PHASE 1: base handbook only [structure] ===
+  [structure] files already present: 0 | new files: 1
+    embedded 40/117
+    embedded 80/117
+    embedded 117/117
+
+=== PHASE 2: the 2-document drop [recursive] ===
+  [recursive] files already present: 1 | new files: 2
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    embedded 4/4
+  added 4 chunks from 2 new files
+
+=== PHASE 2: the 2-document drop [structure] ===
+  [structure] files already present: 1 | new files: 2
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    embedded 12/12
+  added 12 chunks from 2 new files
+
+=== FINAL COLLECTION STATS ===
+  recursive  {'chunks': 136, 'documents': 3, 'chunks_missing_source_file': 0}
+  structure  {'chunks': 129, 'documents': 3, 'chunks_missing_source_file': 0}
+
+  every chunk carries source_file (requirement 1 satisfied)

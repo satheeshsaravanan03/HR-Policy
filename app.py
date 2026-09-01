@@ -19,7 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
-from rag.manifest import DOCUMENTS  # noqa: E402
+from rag.index import collection_stats, ingest  # noqa: E402
+from rag.manifest import CORPUS_DIR, DOCUMENTS, DocumentMeta, register_document  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
 from rag.retrieve import (  # noqa: E402
     HYBRID,
@@ -127,17 +128,43 @@ def show_hits(hits, caption: str = "") -> None:
 with st.sidebar:
     st.header("Settings")
 
+    with st.expander("Upload a policy document", expanded=False):
+        st.caption("PDF and Markdown files are copied into the corpus, assigned metadata, and indexed under both chunkers.")
+        uploaded = st.file_uploader("Policy document", type=["pdf", "md", "markdown"], key="policy_upload")
+        upload_region = st.text_input("Region", value="User upload", key="upload_region")
+        upload_policy_id = st.text_input("Policy ID", value="", key="upload_policy_id", placeholder="e.g. ACME-HR-2026")
+        upload_effective = st.text_input("Effective date", value="unknown", key="upload_effective")
+        if uploaded is not None:
+            safe_name = Path(uploaded.name).name
+            policy_id = upload_policy_id.strip() or Path(safe_name).stem.upper().replace(" ", "-")
+            destination = CORPUS_DIR / safe_name
+            destination.write_bytes(uploaded.getvalue())
+            register_document(DocumentMeta(
+                source_file=safe_name,
+                policy_id=policy_id,
+                region=upload_region.strip() or "User upload",
+                effective_date=upload_effective.strip() or "unknown",
+                date_source="user supplied at upload",
+                carries_leave_policy=True,
+            ))
+            if st.button("Index uploaded document", type="primary", key="index_upload"):
+                with st.spinner("Chunking and indexing uploaded document"):
+                    for strategy_name in (RECURSIVE, STRUCTURE):
+                        ingest(strategy_name, [safe_name])
+                st.success(f"Indexed {safe_name} under both chunking strategies.")
+                st.rerun()
+
     mode = st.radio(
         "Mode",
-        ["Ask (retrieve + generate)", "Search only", "Compare both chunkers"],
-        help="Search only spends no generation quota.",
+        ["Ask", "Retrieve", "Rerank"],
+        help="Ask generates an answer; Retrieve shows RAG chunks; Rerank compares original and reranked order.",
     )
 
     strategy = st.selectbox(
         "Chunking strategy",
         [STRUCTURE, RECURSIVE],
         help="structure splits on policy headers; recursive is the fixed-size baseline.",
-        disabled=mode == "Compare both chunkers",
+        disabled=False,
     )
 
     search_method = st.selectbox(
@@ -162,6 +189,11 @@ with st.sidebar:
         help="Locally rescores the top 20 retrieved chunks. No Groq API key or quota is used.",
     )
 
+    if mode == "Retrieve":
+        rerank = RERANK_OFF
+    elif mode == "Rerank":
+        rerank = RERANK_LOCAL
+
     region_choice = st.selectbox("Region filter", REGIONS)
     region = None if region_choice == "(no filter)" else region_choice
 
@@ -177,7 +209,7 @@ with st.sidebar:
 
 st.title("HR Policy RAG")
 st.caption(
-    "6 policy documents · 4 jurisdictions · two chunking strategies indexed "
+    f"{len(DOCUMENTS)} policy documents · two chunking strategies indexed "
     "under the same embedding model"
 )
 
@@ -248,29 +280,19 @@ if not ((submitted or autorun) and query.strip()):
 # ----------------------------------------------------------------- results
 
 
-def render_compare(query: str, region, top_k: int, search_method: str, rerank: str) -> None:
-    st.subheader("Same question, same search method, different chunker")
-    left, right = st.columns(2)
-    for column, name in ((left, STRUCTURE), (right, RECURSIVE)):
-        with column:
-            st.markdown(f"### `{name}`")
-            with st.spinner("searching"):
-                hits = search(name, query, top_k=top_k, region=region, method=search_method, rerank=rerank)
-            citable = sum(1 for h in hits if h.section)
-            st.metric("Results citable to a section", f"{citable}/{len(hits)}")
-            show_hits(hits)
-    st.info(
-        "The **section** column is the difference. `structure` names the policy "
-        "section; `recursive` shows a dash because it carries no structural "
-        "metadata, so a citation can name the file but not the clause."
-    )
-
-
 def render_search(query: str, strategy: str, region, top_k: int, search_method: str, rerank: str) -> None:
     st.subheader("Retrieved chunks")
     with st.spinner("searching"):
         hits = search(strategy, query, top_k=top_k, region=region, method=search_method, rerank=rerank)
     show_hits(hits, f"strategy={strategy}" + (f" · region={region}" if region else ""))
+
+
+def render_rerank(query: str, strategy: str, region, top_k: int, search_method: str) -> None:
+    st.subheader("RAG retrieval and reranked candidates")
+    st.caption("The table preserves original rank/score alongside the local cross-encoder reranker rank/score.")
+    with st.spinner("retrieving and reranking"):
+        hits = search(strategy, query, top_k=top_k, region=region, method=search_method, rerank=RERANK_LOCAL)
+    show_hits(hits, f"strategy={strategy} · reranker=local cross-encoder" + (f" · region={region}" if region else ""))
 
 
 def render_answer(query: str, strategy: str, region, top_k: int, search_method: str, rerank: str) -> None:
@@ -320,10 +342,10 @@ def render_answer(query: str, strategy: str, region, top_k: int, search_method: 
 
 
 try:
-    if mode == "Compare both chunkers":
-        render_compare(query, region, top_k, search_method, rerank)
-    elif mode == "Search only":
+    if mode == "Retrieve":
         render_search(query, strategy, region, top_k, search_method, rerank)
+    elif mode == "Rerank":
+        render_rerank(query, strategy, region, top_k, search_method)
     else:
         render_answer(query, strategy, region, top_k, search_method, rerank)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed

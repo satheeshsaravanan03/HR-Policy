@@ -20,6 +20,7 @@ chunker reads them off the headings and appends them per chunk.
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
+import json
 from pathlib import Path
 
 CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
@@ -45,48 +46,50 @@ DOCUMENTS: tuple[DocumentMeta, ...] = (
         carries_leave_policy=True,
     ),
     DocumentMeta(
-        source_file="RFSUNY-Leave-Handbook.pdf",
-        policy_id="RF-LEAVE",
-        region="New York",
-        effective_date="2026-07-28",
-        date_source="pdf_creation_date (document states none)",
-        carries_leave_policy=True,
-    ),
-    DocumentMeta(
-        source_file="UMich-Faculty-Handbook-Ch16-Leaves.pdf",
-        policy_id="UM-FH-16",
-        region="Michigan",
-        effective_date="2025-09-11",
-        date_source="pdf_creation_date (document states none)",
-        carries_leave_policy=True,
-    ),
-    DocumentMeta(
-        source_file="Arizona-USM-3-113-Vacation.md",
-        policy_id="USM-3-113",
-        region="Arizona",
-        effective_date="2020-01-27",
+        source_file="Acme-Leave-Policy-2026.md",
+        policy_id="ACME-LEAVE-2026",
+        region="United States",
+        effective_date="2026-01-01",
         date_source="stated in policy text",
         carries_leave_policy=True,
     ),
     DocumentMeta(
-        source_file="Apple-Business-Conduct-Policy.pdf",
-        policy_id="APPL-BCP",
+        source_file="Northstar-Remote-Work-Policy-2026.md",
+        policy_id="NORTHSTAR-REMOTE-2026",
         region="Global",
-        effective_date="2026-02-01",
-        date_source="cover page states February 2026",
-        carries_leave_policy=False,
-    ),
-    DocumentMeta(
-        source_file="Google-Code-of-Conduct.pdf",
-        policy_id="GOOG-COC",
-        region="Global",
-        effective_date="unknown",
-        date_source="no date in text or pdf metadata",
+        effective_date="2026-02-15",
+        date_source="stated in policy text",
         carries_leave_policy=False,
     ),
 )
 
+# Uploaded documents are persisted as metadata so Streamlit restarts do not
+# forget how to index an uploaded file. The upload manifest is optional and is
+# deliberately kept separate from source documents.
+UPLOAD_MANIFEST = CORPUS_DIR / ".uploaded_documents.json"
+if UPLOAD_MANIFEST.exists():
+    try:
+        _uploaded = json.loads(UPLOAD_MANIFEST.read_text(encoding="utf-8"))
+        DOCUMENTS = DOCUMENTS + tuple(DocumentMeta(**item) for item in _uploaded)
+    except (OSError, TypeError, ValueError):
+        _uploaded = []
+else:
+    _uploaded = []
+
 BY_FILE = {doc.source_file: doc for doc in DOCUMENTS}
+
+
+def register_document(meta: DocumentMeta) -> None:
+    """Persist metadata for a user-uploaded corpus document."""
+    global DOCUMENTS, BY_FILE
+    if meta.source_file in BY_FILE:
+        return
+    DOCUMENTS = DOCUMENTS + (meta,)
+    BY_FILE = {doc.source_file: doc for doc in DOCUMENTS}
+    current = list(_uploaded)
+    current.append(asdict(meta))
+    UPLOAD_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    UPLOAD_MANIFEST.write_text(json.dumps(current, indent=2), encoding="utf-8")
 
 
 def base_metadata(source_file: str) -> dict:
