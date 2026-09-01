@@ -32,7 +32,7 @@ class Question:
         return re.search(self.answer_pattern, text, re.I | re.S) is not None
 
 
-# Three of these depend on a row inside an eligibility table, per requirement 2.
+# These questions are authored from the current three-document corpus.
 QUESTIONS: tuple[Question, ...] = (
     Question(
         qid="Q1",
@@ -54,11 +54,11 @@ QUESTIONS: tuple[Question, ...] = (
     ),
     Question(
         qid="Q3",
-        query="What is the maximum number of vacation hours accrued per 80-hour pay period for Arizona university staff?",
-        policy_id="USM-3-113",
-        section="3-113.3",
-        known_answer="6.77 hours per 80-hour pay period",
-        answer_pattern=r"6\.77",
+        query="How many annual leave days does an Acme full-time employee receive per calendar year?",
+        policy_id="ACME-LEAVE-2026",
+        section="2",
+        known_answer="18 days of annual leave per calendar year",
+        answer_pattern=r"18 days of annual leave",
         from_table_row=True,
     ),
     Question(
@@ -71,11 +71,11 @@ QUESTIONS: tuple[Question, ...] = (
     ),
     Question(
         qid="Q5",
-        query="How many accrued vacation hours may Arizona staff carry forward each year?",
-        policy_id="USM-3-113",
-        section="3-113.5",
-        known_answer="Up to 320 accrued hours, prorated by FTE; excess is forfeited",
-        answer_pattern=r"320 accrued hours",
+        query="How many unused Acme annual-leave days may be carried into the next year?",
+        policy_id="ACME-LEAVE-2026",
+        section="3",
+        known_answer="Up to 10 unused annual-leave days",
+        answer_pattern=r"10 unused annual-leave days",
     ),
     Question(
         qid="Q6",
@@ -87,19 +87,19 @@ QUESTIONS: tuple[Question, ...] = (
     ),
     Question(
         qid="Q7",
-        query="How many university-designated holidays do Michigan faculty receive, plus any floating holiday?",
-        policy_id="UM-FH-16",
-        section="16.D.1",
-        known_answer="Seven University-designated holidays plus one floating holiday",
-        answer_pattern=r"seven University-\s*\n?\s*designated holidays",
+        query="How many days per week may an eligible Northstar employee work remotely?",
+        policy_id="NORTHSTAR-REMOTE-2026",
+        section="2",
+        known_answer="Up to three days per week",
+        answer_pattern=r"three days per week",
     ),
     Question(
         qid="Q8",
-        query="Do Research Foundation employees get paid for jury duty, and what documentation is required?",
-        policy_id="RF-LEAVE",
-        section="Jury Duty",
-        known_answer="Full pay for necessary time off; a jury duty voucher and advance notice are required",
-        answer_pattern=r"jury duty voucher",
+        query="How much can a Northstar employee claim each month for approved home-office internet?",
+        policy_id="NORTHSTAR-REMOTE-2026",
+        section="4",
+        known_answer="Up to 50 USD per month",
+        answer_pattern=r"50 USD per month",
     ),
 )
 
@@ -118,35 +118,30 @@ class RefusalCase:
 REFUSALS: tuple[RefusalCase, ...] = (
     RefusalCase(
         qid="R1",
-        query="What is Apple's parental leave entitlement for new parents?",
+        query="What is SoftSuave's sabbatical leave entitlement?",
         why_unanswerable=(
-            "Apple's Business Conduct Policy is in the corpus but defines no leave "
-            "entitlement; its only mention of leave is an anti-retaliation clause. "
-            "'Parental leave' appears once, in the Michigan faculty handbook, which "
-            "is a different employer."
+            "The current SoftSuave handbook does not define a sabbatical entitlement."
         ),
-        difficulty="hard - entity mismatch, high-similarity Apple chunks retrieved",
+        difficulty="hard - correct employer, unsupported leave type",
     ),
     RefusalCase(
         qid="R2",
-        query="What is the gratuity payout formula for a Soft Suave employee on resignation?",
+        query="What is Acme's dental insurance reimbursement limit?",
         why_unanswerable=(
-            "Soft Suave's separation policy (section 8) covers notice period, "
-            "clearance and full-and-final settlement including Provident Fund, but "
-            "'gratuity' appears nowhere in the corpus."
+            "The Acme leave policy contains no dental insurance reimbursement rule."
         ),
-        difficulty="hard - topically adjacent, correct document retrieved",
+        difficulty="hard - correct employer, unrelated benefits topic",
     ),
     RefusalCase(
         qid="R3",
-        query="What is the annual tuition reimbursement cap for employees?",
-        why_unanswerable="'Tuition reimbursement' is absent from all six documents.",
-        difficulty="baseline - no adjacent content anywhere",
+        query="Does Northstar provide a relocation bonus for remote employees?",
+        why_unanswerable="Relocation bonuses are absent from the current three documents.",
+        difficulty="baseline - no supporting content anywhere",
     ),
 )
 
 # Requirement 5 wants three answerable questions through generation. These
 # reuse Q4, Q1 and Q7 so the cited answers rest on already-known ground truth.
-CITED_ANSWER_QIDS = ("Q4", "Q1", "Q7")
+CITED_ANSWER_QIDS = ("Q4", "Q1", "Q3")
 
 BY_QID = {q.qid: q for q in QUESTIONS}
