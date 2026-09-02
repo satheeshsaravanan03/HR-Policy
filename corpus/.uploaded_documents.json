@@ -1,0 +1,10 @@
+[
+  {
+    "source_file": "Synthetic_HR_Policy_RAG_Test_Dataset.md",
+    "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+    "region": "User upload",
+    "effective_date": "unknown",
+    "date_source": "user supplied at upload",
+    "carries_leave_policy": true
+  }
+]

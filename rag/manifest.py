@@ -54,6 +54,14 @@ DOCUMENTS: tuple[DocumentMeta, ...] = (
         carries_leave_policy=True,
     ),
     DocumentMeta(
+        source_file="Acme-Employment-Terms-2026.md",
+        policy_id="ACME-EMP-2026",
+        region="United States",
+        effective_date="2026-03-01",
+        date_source="stated in policy text",
+        carries_leave_policy=False,
+    ),
+    DocumentMeta(
         source_file="Northstar-Remote-Work-Policy-2026.md",
         policy_id="NORTHSTAR-REMOTE-2026",
         region="Global",

@@ -1,0 +1,35 @@
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+
+=== PHASE 1: base handbook only [recursive] ===
+  [recursive] files already present: 1 | new files: 0
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    nothing new to embed (all chunk_ids already stored)
+
+=== PHASE 1: base handbook only [structure] ===
+  [structure] files already present: 1 | new files: 0
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    nothing new to embed (all chunk_ids already stored)
+
+=== PHASE 2: the 4-document drop [recursive] ===
+  [recursive] files already present: 4 | new files: 1
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    already indexed, not re-embedded: Acme-Leave-Policy-2026.md
+    already indexed, not re-embedded: Northstar-Remote-Work-Policy-2026.md
+    already indexed, not re-embedded: Synthetic_HR_Policy_RAG_Test_Dataset.md
+    embedded 2/2
+  added 2 chunks from 1 new files
+
+=== PHASE 2: the 4-document drop [structure] ===
+  [structure] files already present: 4 | new files: 1
+    already indexed, not re-embedded: SoftSuave-Employee-Handbook-2025.pdf
+    already indexed, not re-embedded: Acme-Leave-Policy-2026.md
+    already indexed, not re-embedded: Northstar-Remote-Work-Policy-2026.md
+    already indexed, not re-embedded: Synthetic_HR_Policy_RAG_Test_Dataset.md
+    embedded 6/6
+  added 6 chunks from 1 new files
+
+=== FINAL COLLECTION STATS ===
+  recursive  {'chunks': 440, 'documents': 5, 'chunks_missing_source_file': 0}
+  structure  {'chunks': 273, 'documents': 5, 'chunks_missing_source_file': 0}
+
+  every chunk carries source_file (requirement 1 satisfied)

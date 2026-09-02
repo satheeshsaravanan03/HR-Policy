@@ -95,11 +95,11 @@ QUESTIONS: tuple[Question, ...] = (
     ),
     Question(
         qid="Q8",
-        query="How much can a Northstar employee claim each month for approved home-office internet?",
-        policy_id="NORTHSTAR-REMOTE-2026",
-        section="4",
-        known_answer="Up to 50 USD per month",
-        answer_pattern=r"50 USD per month",
+        query="How much notice must a permanent Acme employee give before resigning?",
+        policy_id="ACME-EMP-2026",
+        section="3",
+        known_answer="30 calendar days of written notice",
+        answer_pattern=r"30 calendar days of written notice",
     ),
 )
 
