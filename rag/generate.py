@@ -183,7 +183,7 @@ def _context(hits: list[Hit]) -> str:
             f"[CHUNK_ID: {h.chunk_id}]\n"
             f"policy_id: {h.policy_id} | section: {h.section or '-'} | "
             f"region: {h.region} | source_file: {h.source_file}\n"
-            f"{h.content}\n---"
+            f"{h.context_content or h.content}\n---"
         )
     return "\n".join(blocks)
 

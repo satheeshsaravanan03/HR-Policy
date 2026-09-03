@@ -1,4 +1,4 @@
-# HR Policy RAG — Version 1 and Version 2
+# HR Policy RAG — Version 5.2.1 (Version 1 + Version 2)
 
 This branch documents the evolution of the HR-policy RAG application. The
 pipeline is intentionally small so retrieval behavior can be measured and
@@ -25,11 +25,15 @@ Version 2 adds:
 
 - BM25 keyword search and hybrid semantic + BM25 search using RRF
 - region and document metadata on every chunk
-- optional local cross-encoder reranking
+- optional local Jina Turbo cross-encoder reranking
 - PDF/Markdown upload with incremental indexing under both chunkers
 - JSONL traces for generated answers and refusals
 - seeded trace sampling and replay support
 - stricter refusal handling and tighter explicit-ID redaction
+- deterministic query normalization for common typos and spacing noise
+- query understanding that detects explicitly named indexed regions/policy IDs
+- parent-context expansion: neighboring chunks are supplied to generation while
+  citations remain anchored to the original retrieved chunk
 
 The Streamlit modes are:
 
@@ -37,8 +41,9 @@ The Streamlit modes are:
 2. **Retrieve** — show top-k retrieved chunks and metadata without generation.
 3. **Rerank** — retrieve candidates, apply the local cross-encoder, and show original versus reranked scores.
 
-The reranker currently runs locally. An external LLM reranker is a future
-experiment and must be evaluated separately.
+The reranker currently runs locally with `jinaai/jina-reranker-v1-turbo-en`.
+Set `RERANK_MODEL=Xenova/ms-marco-MiniLM-L-6-v2` to reproduce the old baseline.
+An external LLM reranker is a future experiment and must be evaluated separately.
 
 ## Current corpus
 
@@ -108,8 +113,9 @@ Chunk metadata includes `source_file`, `policy_id`, `region`,
 - **Recursive baseline:** approximately 1,000-character windows with 150-character overlap.
 - **Structure-aware:** splits on policy headings, retains section numbers, and re-prepends headings to oversized pieces.
 
-Future experiments can test hierarchical parent-child retrieval and table-aware
-chunking that keeps table headers, rows, and eligibility clauses together.
+The structure-aware strategy is the preferred chunker for section-numbered
+policies. Parent-context expansion is applied at retrieval time, so no second
+embedding index is required.
 
 ## Week 4 measurement
 

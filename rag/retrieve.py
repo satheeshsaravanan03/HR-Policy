@@ -21,6 +21,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from .index import reader
+from .manifest import DOCUMENTS
 from .questions import QUESTIONS, Question
 
 TOP_K = 5
@@ -39,6 +40,29 @@ FUSION_CANDIDATES = 20
 RERANK_CANDIDATES = 20
 TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9._-]*", re.I)
 
+# Small, deterministic cleanup for conversational/typo-heavy questions.  This
+# is deliberately not an LLM rewrite: retrieval remains reproducible and the
+# original question is still used for generation and tracing.
+_QUERY_FIXES = {
+    "nottice": "notice", "periond": "period", "eligiblity": "eligibility",
+    "employe": "employee", "polciy": "policy", "benifit": "benefit",
+}
+
+
+def normalize_query(query: str) -> str:
+    """Normalize whitespace and a few common policy-search misspellings."""
+    text = re.sub(r"\s+", " ", query or "").strip()
+    words = re.findall(r"[A-Za-z0-9._-]+|[^A-Za-z0-9._-]+", text)
+    return "".join(_QUERY_FIXES.get(word.lower(), word) for word in words)
+
+
+def understand_query(query: str) -> tuple[str | None, str | None]:
+    """Infer explicit region/policy constraints without guessing intent."""
+    lowered = query.lower()
+    policy_id = next((d.policy_id for d in DOCUMENTS if d.policy_id.lower() in lowered), None)
+    region = next((d.region for d in DOCUMENTS if d.region.lower() in lowered), None)
+    return policy_id, region
+
 
 @dataclass
 class Hit:
@@ -56,6 +80,8 @@ class Hit:
     rerank_score: float | None = None
     retrieval_rank: int | None = None
     retrieval_score: float | None = None
+    # Optional neighboring context used only in the generation prompt.
+    context_content: str | None = None
 
     def label(self) -> str:
         section = self.section or "-"
@@ -96,6 +122,7 @@ def search(
     region: str | None = None,
     method: str = SEMANTIC,
     rerank: str = RERANK_OFF,
+    policy_id: str | None = None,
 ) -> list[Hit]:
     """Retrieve chunks using semantic, BM25, or hybrid RRF search.
 
@@ -109,17 +136,48 @@ def search(
     if rerank not in RERANK_OPTIONS:
         raise ValueError(f"unknown reranker {rerank!r}; use one of {RERANK_OPTIONS}")
 
+    query = normalize_query(query)
+    inferred_policy, inferred_region = understand_query(query)
+    policy_id = policy_id or inferred_policy
+    region = region or inferred_region
     candidate_count = max(RERANK_CANDIDATES, top_k) if rerank == RERANK_LOCAL else top_k
     if method == SEMANTIC:
-        hits = _semantic_search(strategy, query, candidate_count, region)
+        hits = _semantic_search(strategy, query, candidate_count, region, policy_id)
     elif method == BM25:
-        hits = _bm25_search(strategy, query, candidate_count, region)
+        hits = _bm25_search(strategy, query, candidate_count, region, policy_id)
     else:
-        hits = _hybrid_search(strategy, query, candidate_count, region)
+        hits = _hybrid_search(strategy, query, candidate_count, region, policy_id)
     if rerank == RERANK_LOCAL:
         from .rerank import rerank as local_rerank
 
-        return local_rerank(query, hits, top_k)
+        hits = local_rerank(query, hits, top_k)
+    return _expand_parent_context(strategy, hits)
+
+
+def _expand_parent_context(strategy: str, hits: list[Hit], window: int = 1) -> list[Hit]:
+    """Attach adjacent same-document chunks as prompt-only parent context.
+
+    Chunk identity and scores stay unchanged, so citations still resolve to the
+    retrieved chunk while the model can see a definition or heading split into
+    the immediately preceding/following chunk.
+    """
+    if not hits:
+        return hits
+    stored = _stored_chunks(strategy)
+    by_source: dict[str, list[_StoredChunk]] = {}
+    for chunk in stored:
+        by_source.setdefault(str(chunk.metadata.get("source_file", "")), []).append(chunk)
+    for values in by_source.values():
+        values.sort(key=lambda c: int(re.search(r"-(\d{4})-", c.chunk_id).group(1)) if re.search(r"-(\d{4})-", c.chunk_id) else 0)
+    for hit in hits:
+        siblings = by_source.get(hit.source_file, [])
+        index = next((i for i, c in enumerate(siblings) if c.chunk_id == hit.chunk_id), None)
+        if index is None:
+            continue
+        start, end = max(0, index - window), min(len(siblings), index + window + 1)
+        context = "\n\n".join(c.content for c in siblings[start:end])
+        if context != hit.content:
+            hit.context_content = context
     return hits
 
 
@@ -139,13 +197,14 @@ def _hit(doc, rank: int, score: float, **scores) -> Hit:
 
 
 def _semantic_search(
-    strategy: str, query: str, top_k: int, region: str | None
+    strategy: str, query: str, top_k: int, region: str | None, policy_id: str | None = None
 ) -> list[Hit]:
     """The original vector retrieval path, retained unchanged as baseline."""
     store = reader(strategy)
     kwargs = {"k": top_k}
-    if region:
-        kwargs["filter"] = {"region": region}
+    filters = [{key: value} for key, value in (("region", region), ("policy_id", policy_id)) if value]
+    if filters:
+        kwargs["filter"] = filters[0] if len(filters) == 1 else {"$and": filters}
     pairs = store.similarity_search_with_relevance_scores(query, **kwargs)
 
     return [
@@ -216,11 +275,13 @@ def _stored_hit(chunk: _StoredChunk, rank: int, score: float, **scores) -> Hit:
 
 
 def _bm25_search(
-    strategy: str, query: str, top_k: int, region: str | None
+    strategy: str, query: str, top_k: int, region: str | None, policy_id: str | None = None
 ) -> list[Hit]:
     chunks = list(_stored_chunks(strategy))
     if region:
         chunks = [chunk for chunk in chunks if chunk.metadata.get("region") == region]
+    if policy_id:
+        chunks = [chunk for chunk in chunks if chunk.metadata.get("policy_id") == policy_id]
     return [
         _stored_hit(chunk, rank, score, bm25_score=round(score, 4))
         for rank, (chunk, score) in enumerate(_bm25_scores(query, chunks)[:top_k], start=1)
@@ -228,12 +289,12 @@ def _bm25_search(
 
 
 def _hybrid_search(
-    strategy: str, query: str, top_k: int, region: str | None
+    strategy: str, query: str, top_k: int, region: str | None, policy_id: str | None = None
 ) -> list[Hit]:
     """Fuse broad semantic and keyword candidate lists using RRF."""
     candidate_count = max(FUSION_CANDIDATES, top_k)
-    semantic = _semantic_search(strategy, query, candidate_count, region)
-    keyword = _bm25_search(strategy, query, candidate_count, region)
+    semantic = _semantic_search(strategy, query, candidate_count, region, policy_id)
+    keyword = _bm25_search(strategy, query, candidate_count, region, policy_id)
 
     fused: dict[str, dict] = {}
     for hits, kind in ((semantic, "semantic"), (keyword, "bm25")):
