@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import time
+import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -29,6 +30,9 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
+from langchain_qdrant import QdrantVectorStore
 
 from .chunkers import RECURSIVE, STRATEGIES, STRUCTURE
 from .embed_cache import DiskCachedEmbeddings
@@ -66,6 +70,71 @@ LOCAL = "local"
 # mid-session. The graded numbers in results.md were produced with the Gemini
 # backend; set EMBED_BACKEND=gemini to reproduce them.
 BACKEND = os.environ.get("EMBED_BACKEND", LOCAL).strip().lower()
+VECTOR_STORE = os.environ.get("VECTOR_STORE", "chroma").strip().lower()
+QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", "hr_policy_v1")
+QDRANT_DIMENSIONS = 768
+
+
+class _QdrantAdapter:
+    """Small Chroma-compatible facade used by the existing retrieval code."""
+
+    def __init__(self, store: QdrantVectorStore, client: QdrantClient, collection: str):
+        self._store, self._client, self._collection = store, client, collection
+
+    def __getattr__(self, name):
+        return getattr(self._store, name)
+
+    def add_documents(self, documents, ids=None, **kwargs):
+        """Map Chroma-style chunk IDs to deterministic UUID point IDs."""
+        original_ids = ids or [str(uuid.uuid4()) for _ in documents]
+        point_ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, str(value))) for value in original_ids]
+        return self._store.add_documents(documents, ids=point_ids, **kwargs)
+
+    def get(self, include=None):
+        points, _ = self._client.scroll(
+            collection_name=self._collection,
+            limit=10000,
+            with_payload=True,
+            with_vectors=False,
+        )
+        ids, documents, metadatas = [], [], []
+        for point in points:
+            payload = point.payload or {}
+            metadata = payload.get("metadata", {})
+            content = payload.get("page_content", "")
+            # Return the application chunk ID, not Qdrant's internal UUID.
+            ids.append(str(metadata.get("chunk_id", point.id)))
+            documents.append(content)
+            metadatas.append(metadata)
+        result = {"ids": ids, "metadatas": metadatas}
+        if include and "documents" in include:
+            result["documents"] = documents
+        return result
+
+
+def _qdrant_collection(strategy: str) -> str:
+    return f"{QDRANT_COLLECTION}_{strategy}"
+
+
+def _qdrant_open(strategy: str, task_type: str):
+    url, key = os.environ.get("QDRANT_URL"), os.environ.get("QDRANT_API_KEY")
+    if not url or not key:
+        raise RuntimeError("QDRANT_URL and QDRANT_API_KEY are required when VECTOR_STORE=qdrant")
+    timeout = float(os.environ.get("QDRANT_TIMEOUT", "60"))
+    client = QdrantClient(url=url, api_key=key, timeout=timeout)
+    name = _qdrant_collection(strategy)
+    if not client.collection_exists(name):
+        client.create_collection(
+            collection_name=name,
+            vectors_config=VectorParams(size=QDRANT_DIMENSIONS, distance=Distance.COSINE),
+        )
+    store = QdrantVectorStore(
+        client=client,
+        collection_name=name,
+        embedding=embeddings(task_type),
+        distance=Distance.COSINE,
+    )
+    return _QdrantAdapter(store, client, name)
 
 
 def collection_name(strategy: str, backend: str | None = None) -> str:
@@ -97,7 +166,9 @@ def embeddings(task_type: str, backend: str | None = None) -> Embeddings:
     return DiskCachedEmbeddings(inner, namespace=f"{EMBEDDING_MODEL}:{task_type}")
 
 
-def _open(strategy: str, task_type: str, backend: str | None = None) -> Chroma:
+def _open(strategy: str, task_type: str, backend: str | None = None):
+    if VECTOR_STORE == "qdrant":
+        return _qdrant_open(strategy, task_type)
     return Chroma(
         collection_name=collection_name(strategy, backend),
         embedding_function=embeddings(task_type, backend),
