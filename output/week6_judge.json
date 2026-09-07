@@ -1,0 +1,86 @@
+{
+  "model": "openai/gpt-oss-120b",
+  "calibration_size": 6,
+  "human_judge_agreement": 1.0,
+  "validated": true,
+  "rows": [
+    {
+      "qid": "Q1",
+      "question": "How many casual or sick leaves does an employee at the Bangalore office get in a calendar year?",
+      "human_pass": 1,
+      "judge": {
+        "faithfulness": 1,
+        "relevance": 1,
+        "completeness": 1,
+        "refusal_correct": 1,
+        "pass": 1
+      },
+      "app_refused": false
+    },
+    {
+      "qid": "Q3",
+      "question": "How many annual leave days does an Acme full-time employee receive per calendar year?",
+      "human_pass": 1,
+      "judge": {
+        "faithfulness": 1,
+        "relevance": 1,
+        "completeness": 1,
+        "refusal_correct": 1,
+        "pass": 1
+      },
+      "app_refused": false
+    },
+    {
+      "qid": "Q7",
+      "question": "How many days per week may an eligible Northstar employee work remotely?",
+      "human_pass": 1,
+      "judge": {
+        "faithfulness": 1,
+        "relevance": 1,
+        "completeness": 1,
+        "refusal_correct": 1,
+        "pass": 1
+      },
+      "app_refused": false
+    },
+    {
+      "qid": "R1",
+      "question": "What is SoftSuave's sabbatical leave entitlement?",
+      "human_pass": 1,
+      "judge": {
+        "faithfulness": 1,
+        "relevance": 1,
+        "completeness": 1,
+        "refusal_correct": 1,
+        "pass": 1
+      },
+      "app_refused": true
+    },
+    {
+      "qid": "R2",
+      "question": "What is Acme's dental insurance reimbursement limit?",
+      "human_pass": 1,
+      "judge": {
+        "faithfulness": 1,
+        "relevance": 1,
+        "completeness": 1,
+        "refusal_correct": 1,
+        "pass": 1
+      },
+      "app_refused": true
+    },
+    {
+      "qid": "R3",
+      "question": "Does Northstar provide a relocation bonus for remote employees?",
+      "human_pass": 1,
+      "judge": {
+        "faithfulness": 1,
+        "relevance": 1,
+        "completeness": 1,
+        "refusal_correct": 1,
+        "pass": 1
+      },
+      "app_refused": true
+    }
+  ]
+}

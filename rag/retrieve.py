@@ -20,7 +20,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .index import reader
+from .index import VECTOR_STORE, reader
 from .manifest import DOCUMENTS
 from .questions import QUESTIONS, Question
 
@@ -202,9 +202,19 @@ def _semantic_search(
     """The original vector retrieval path, retained unchanged as baseline."""
     store = reader(strategy)
     kwargs = {"k": top_k}
-    filters = [{key: value} for key, value in (("region", region), ("policy_id", policy_id)) if value]
+    filters = [(key, value) for key, value in (("region", region), ("policy_id", policy_id)) if value]
     if filters:
-        kwargs["filter"] = filters[0] if len(filters) == 1 else {"$and": filters}
+        if VECTOR_STORE == "qdrant":
+            from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+            kwargs["filter"] = Filter(
+                must=[
+                    FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value))
+                    for key, value in filters
+                ]
+            )
+        else:
+            kwargs["filter"] = filters[0] if len(filters) == 1 else {"$and": [{k: v} for k, v in filters]}
     pairs = store.similarity_search_with_relevance_scores(query, **kwargs)
 
     return [

@@ -11,6 +11,7 @@ the top result, and a refusal firing while the relevance scores stay high.
 from __future__ import annotations
 
 import sys
+import subprocess
 from pathlib import Path
 
 import streamlit as st
@@ -200,6 +201,44 @@ with st.sidebar:
     top_k = st.slider("Chunks to retrieve (top-k)", 1, 15, 5)
 
     st.divider()
+    with st.expander("Week 6 evaluations", expanded=False):
+        st.caption("Run the rule-based eval set, regression assertions, and LLM-judge calibration.")
+        if st.button("Run Week 6 evaluation", key="run_week6_eval", type="primary"):
+            scripts_dir = Path(__file__).resolve().parent / "scripts"
+            commands = [
+                [sys.executable, str(scripts_dir / "08_week6_eval.py")],
+                [sys.executable, str(scripts_dir / "09_llm_judge.py")],
+            ]
+            output = []
+            failed = False
+            with st.spinner("Running Week 6 evaluation and LLM judge calibration"):
+                for command in commands:
+                    try:
+                        completed = subprocess.run(
+                            command, cwd=str(Path(__file__).resolve().parent),
+                            capture_output=True, text=True, timeout=900,
+                        )
+                        output.append(completed.stdout or completed.stderr)
+                        if completed.returncode != 0:
+                            failed = True
+                            break
+                    except subprocess.TimeoutExpired:
+                        failed = True
+                        output.append("Evaluation timed out after 15 minutes.")
+                        break
+            if failed:
+                st.error("Week 6 evaluation failed. See the output below.")
+            else:
+                st.success("Week 6 evaluation completed.")
+            st.code("\n\n".join(output), language="text")
+            output_dir = Path(__file__).resolve().parent / "output"
+            for report in (output_dir / "week6_eval.md", output_dir / "week6_judge.json"):
+                if report.exists():
+                    st.download_button(
+                        f"Download {report.name}", report.read_bytes(), file_name=report.name,
+                        key=f"download_{report.name}",
+                    )
+
     st.caption(
         "Search-only avoids generation calls. Semantic and hybrid searches create "
         "one query embedding; BM25 runs locally over stored chunk text."

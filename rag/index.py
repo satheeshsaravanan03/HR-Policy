@@ -31,7 +31,7 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 from langchain_qdrant import QdrantVectorStore
 
 from .chunkers import RECURSIVE, STRATEGIES, STRUCTURE
@@ -127,6 +127,15 @@ def _qdrant_open(strategy: str, task_type: str):
         client.create_collection(
             collection_name=name,
             vectors_config=VectorParams(size=QDRANT_DIMENSIONS, distance=Distance.COSINE),
+        )
+    # Metadata filters require payload indexes in Qdrant Cloud.  Creating an
+    # existing index is idempotent, so this also upgrades collections created
+    # before metadata filtering was enabled.
+    for field in ("metadata.region", "metadata.policy_id", "metadata.source_file"):
+        client.create_payload_index(
+            collection_name=name,
+            field_name=field,
+            field_schema=PayloadSchemaType.KEYWORD,
         )
     store = QdrantVectorStore(
         client=client,

@@ -6,5 +6,13 @@
     "effective_date": "unknown",
     "date_source": "user supplied at upload",
     "carries_leave_policy": true
+  },
+  {
+    "source_file": "Nexora_Tech_Azure_Cloud_Data_Access_Policy.md",
+    "policy_id": "NEXORA_TECH_AZURE_CLOUD_DATA_ACCESS_POLICY",
+    "region": "User upload",
+    "effective_date": "unknown",
+    "date_source": "user supplied at upload",
+    "carries_leave_policy": true
   }
 ]

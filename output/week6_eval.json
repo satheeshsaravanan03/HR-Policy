@@ -1,0 +1,1673 @@
+{
+  "cases": [
+    {
+      "id": "Q1",
+      "set": "answerable",
+      "query": "How many casual or sick leaves does an employee at the Bangalore office get in a calendar year?",
+      "policy_id": "SS-HB-2025",
+      "pattern": "Bangalore Office\\s*\\n?\\s*15",
+      "expect_refusal": false
+    },
+    {
+      "id": "Q2",
+      "set": "answerable",
+      "query": "How many privilege leaves are listed for the Chennai office?",
+      "policy_id": "SS-HB-2025",
+      "pattern": "Chennai Office\\s*\\n?\\s*15\\s*\\n?\\s*3",
+      "expect_refusal": false
+    },
+    {
+      "id": "Q3",
+      "set": "answerable",
+      "query": "How many annual leave days does an Acme full-time employee receive per calendar year?",
+      "policy_id": "ACME-LEAVE-2026",
+      "pattern": "18 days of annual leave",
+      "expect_refusal": false
+    },
+    {
+      "id": "Q4",
+      "set": "answerable",
+      "query": "For non-technical staff, how many unused leaves can be carried over to the next year?",
+      "policy_id": "SS-HB-2025",
+      "pattern": "nine leaves will be carried over",
+      "expect_refusal": false
+    },
+    {
+      "id": "Q5",
+      "set": "answerable",
+      "query": "How many unused Acme annual-leave days may be carried into the next year?",
+      "policy_id": "ACME-LEAVE-2026",
+      "pattern": "10 unused annual-leave days",
+      "expect_refusal": false
+    },
+    {
+      "id": "Q6",
+      "set": "answerable",
+      "query": "What is the maximum maternity leave, and how much of it may be taken before delivery?",
+      "policy_id": "SS-HB-2025",
+      "pattern": "maximum of\\s*26\\s*\\n?\\s*weeks",
+      "expect_refusal": false
+    },
+    {
+      "id": "Q7",
+      "set": "answerable",
+      "query": "How many days per week may an eligible Northstar employee work remotely?",
+      "policy_id": "NORTHSTAR-REMOTE-2026",
+      "pattern": "three days per week",
+      "expect_refusal": false
+    },
+    {
+      "id": "Q8",
+      "set": "answerable",
+      "query": "How much notice must a permanent Acme employee give before resigning?",
+      "policy_id": "ACME-EMP-2026",
+      "pattern": "30 calendar days of written notice",
+      "expect_refusal": false
+    },
+    {
+      "id": "R1",
+      "set": "refusal",
+      "query": "What is SoftSuave's sabbatical leave entitlement?",
+      "policy_id": null,
+      "pattern": null,
+      "expect_refusal": true
+    },
+    {
+      "id": "R2",
+      "set": "refusal",
+      "query": "What is Acme's dental insurance reimbursement limit?",
+      "policy_id": null,
+      "pattern": null,
+      "expect_refusal": true
+    },
+    {
+      "id": "R3",
+      "set": "refusal",
+      "query": "Does Northstar provide a relocation bonus for remote employees?",
+      "policy_id": null,
+      "pattern": null,
+      "expect_refusal": true
+    },
+    {
+      "id": "REG-01",
+      "set": "regression",
+      "query": "What is the nottice periond for a permanent Acme employee?",
+      "policy_id": "ACME-EMP-2026",
+      "pattern": "30 calendar days of written notice",
+      "expect_refusal": false
+    },
+    {
+      "id": "REG-02",
+      "set": "regression",
+      "query": "How many days per week may an eligible Northstar employee work remotely?",
+      "policy_id": "NORTHSTAR-REMOTE-2026",
+      "pattern": "three days per week",
+      "expect_refusal": false
+    },
+    {
+      "id": "REG-03",
+      "set": "regression",
+      "query": "Does SoftSuave have a sabbatical leave entitlement?",
+      "policy_id": null,
+      "pattern": null,
+      "expect_refusal": true
+    }
+  ],
+  "results": [
+    {
+      "id": "Q1",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0065-f71f3cbe",
+          "policy_id": "SS-HB-2025",
+          "section": "9.2",
+          "score": 0.8971
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0028-e45c24cd",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8403
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-LEAVE-2026#structure-0004-bea754bf",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "4",
+          "score": 0.8371
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0137-c74bd643",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8363
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0097-16189445",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": 0.8307
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q2",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0065-f71f3cbe",
+          "policy_id": "SS-HB-2025",
+          "section": "9.2",
+          "score": 0.8871
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0096-6a36b8cd",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": 0.849
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SS-HB-2025#structure-0097-16189445",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": 0.8109
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0113-6b5bc44a",
+          "policy_id": "SS-HB-2025",
+          "section": "24",
+          "score": 0.8065
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
+          "policy_id": "SS-HB-2025",
+          "section": "9.3",
+          "score": 0.8017
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q3",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": 0.8931
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0001-5295afa5",
+          "policy_id": "ACME-EMP-2026",
+          "section": "1",
+          "score": 0.8713
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-LEAVE-2026#structure-0001-e5219947",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "1",
+          "score": 0.8655
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0000-da84c6e5",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "",
+          "score": 0.8645
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-LEAVE-2026#structure-0004-bea754bf",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "4",
+          "score": 0.8544
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q4",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
+          "policy_id": "SS-HB-2025",
+          "section": "9.3",
+          "score": 0.8899
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0065-f71f3cbe",
+          "policy_id": "SS-HB-2025",
+          "section": "9.2",
+          "score": 0.8512
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-LEAVE-2026#structure-0003-6a055a77",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "3",
+          "score": 0.8506
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0073-c21c2db7",
+          "policy_id": "SS-HB-2025",
+          "section": "9.9",
+          "score": 0.8406
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0050-b0a2303d",
+          "policy_id": "SS-HB-2025",
+          "section": "7.2",
+          "score": 0.8206
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q5",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-LEAVE-2026#structure-0003-6a055a77",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "3",
+          "score": 0.8957
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-LEAVE-2026#structure-0000-da84c6e5",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "",
+          "score": 0.8585
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": 0.8546
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
+          "policy_id": "SS-HB-2025",
+          "section": "9.3",
+          "score": 0.8434
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0065-f71f3cbe",
+          "policy_id": "SS-HB-2025",
+          "section": "9.2",
+          "score": 0.8326
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q6",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0072-19588086",
+          "policy_id": "SS-HB-2025",
+          "section": "9.8",
+          "score": 0.8959
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-LEAVE-2026#structure-0005-7129dde5",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "5",
+          "score": 0.864
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SS-HB-2025#structure-0071-07a545f1",
+          "policy_id": "SS-HB-2025",
+          "section": "9.7",
+          "score": 0.8128
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0004-bea754bf",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "4",
+          "score": 0.8073
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": 0.8057
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q7",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 2,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0041-2bfd4f67",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8884
+        },
+        {
+          "rank": 2,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0002-aca711bf",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "2",
+          "score": 0.8873
+        },
+        {
+          "rank": 3,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0000-3fe7942c",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "",
+          "score": 0.8792
+        },
+        {
+          "rank": 4,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0001-df4e008e",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "1",
+          "score": 0.8721
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0034-4650bfc0",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8651
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q8",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 4,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-EMP-2026#structure-0002-c863d31b",
+          "policy_id": "ACME-EMP-2026",
+          "section": "2",
+          "score": 0.9116
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": 0.8938
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-EMP-2026#structure-0001-5295afa5",
+          "policy_id": "ACME-EMP-2026",
+          "section": "1",
+          "score": 0.8838
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-EMP-2026#structure-0003-94111723",
+          "policy_id": "ACME-EMP-2026",
+          "section": "3",
+          "score": 0.8794
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0054-6945affa",
+          "policy_id": "SS-HB-2025",
+          "section": "8.1",
+          "score": 0.8553
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "R1",
+      "set": "refusal",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0063-825c3c54",
+          "policy_id": "SS-HB-2025",
+          "section": "9",
+          "score": 0.8843
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0048-c20c8e5f",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": 0.8648
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SS-HB-2025#structure-0047-40118232",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": 0.8592
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0078-07dd64f0",
+          "policy_id": "SS-HB-2025",
+          "section": "9.11",
+          "score": 0.8565
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0040-a52b7468",
+          "policy_id": "SS-HB-2025",
+          "section": "6.3",
+          "score": 0.8545
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "R2",
+      "set": "refusal",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-EMP-2026#structure-0001-5295afa5",
+          "policy_id": "ACME-EMP-2026",
+          "section": "1",
+          "score": 0.8277
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": 0.8138
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-EMP-2026#structure-0000-5445a948",
+          "policy_id": "ACME-EMP-2026",
+          "section": "",
+          "score": 0.8118
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0000-da84c6e5",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "",
+          "score": 0.81
+        },
+        {
+          "rank": 5,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0004-ab6ca34c",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "4",
+          "score": 0.7973
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "R3",
+      "set": "refusal",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0041-2bfd4f67",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8536
+        },
+        {
+          "rank": 2,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0000-3fe7942c",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "",
+          "score": 0.8526
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0034-4650bfc0",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8413
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0054-d4451725",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8286
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0018-3f4d332d",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8238
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "REG-01",
+      "set": "regression",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 0.5,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": false,
+        "expected_refusal": false,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": 0.8949
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0002-c863d31b",
+          "policy_id": "ACME-EMP-2026",
+          "section": "2",
+          "score": 0.89
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-EMP-2026#structure-0001-5295afa5",
+          "policy_id": "ACME-EMP-2026",
+          "section": "1",
+          "score": 0.8843
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0000-da84c6e5",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "",
+          "score": 0.8731
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-EMP-2026#structure-0000-5445a948",
+          "policy_id": "ACME-EMP-2026",
+          "section": "",
+          "score": 0.8701
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "REG-02",
+      "set": "regression",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 2,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0041-2bfd4f67",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8884
+        },
+        {
+          "rank": 2,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0002-aca711bf",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "2",
+          "score": 0.8873
+        },
+        {
+          "rank": 3,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0000-3fe7942c",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "",
+          "score": 0.8792
+        },
+        {
+          "rank": 4,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0001-df4e008e",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "1",
+          "score": 0.8721
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0034-4650bfc0",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.8651
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "REG-03",
+      "set": "regression",
+      "strategy": "structure",
+      "method": "semantic",
+      "rerank": "off",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0063-825c3c54",
+          "policy_id": "SS-HB-2025",
+          "section": "9",
+          "score": 0.8881
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0048-c20c8e5f",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": 0.8766
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SS-HB-2025#structure-0047-40118232",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": 0.8618
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0040-a52b7468",
+          "policy_id": "SS-HB-2025",
+          "section": "6.3",
+          "score": 0.861
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0078-07dd64f0",
+          "policy_id": "SS-HB-2025",
+          "section": "9.11",
+          "score": 0.8571
+        }
+      ],
+      "version": "baseline"
+    },
+    {
+      "id": "Q1",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0065-f71f3cbe",
+          "policy_id": "SS-HB-2025",
+          "section": "9.2",
+          "score": 2.7926
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-LEAVE-2026#structure-0004-bea754bf",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "4",
+          "score": 0.0402
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0137-c74bd643",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.4282
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0028-e45c24cd",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.7847
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
+          "policy_id": "SS-HB-2025",
+          "section": "9.3",
+          "score": -0.9551
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "Q2",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0065-f71f3cbe",
+          "policy_id": "SS-HB-2025",
+          "section": "9.2",
+          "score": 1.1068
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0075-9927f910",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": -0.9474
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
+          "policy_id": "SS-HB-2025",
+          "section": "9.3",
+          "score": -1.0324
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0073-c21c2db7",
+          "policy_id": "SS-HB-2025",
+          "section": "9.9",
+          "score": -1.3715
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0113-6b5bc44a",
+          "policy_id": "SS-HB-2025",
+          "section": "24",
+          "score": -2.0895
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "Q3",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": 0.3195
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": 0.2864
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0026-6f0498a0",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 0.2381
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0001-e5219947",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "1",
+          "score": 0.146
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0137-c74bd643",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.132
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "Q4",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
+          "policy_id": "SS-HB-2025",
+          "section": "9.3",
+          "score": 1.7685
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-LEAVE-2026#structure-0003-6a055a77",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "3",
+          "score": 0.4484
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": -1.2038
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0004-bea754bf",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "4",
+          "score": -1.3491
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0075-9927f910",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": -1.4424
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "Q5",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-LEAVE-2026#structure-0003-6a055a77",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "3",
+          "score": 1.0525
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
+          "policy_id": "SS-HB-2025",
+          "section": "9.3",
+          "score": 0.1216
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": -0.6551
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": -0.7138
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-LEAVE-2026#structure-0001-e5219947",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "1",
+          "score": -0.7352
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "Q6",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0072-19588086",
+          "policy_id": "SS-HB-2025",
+          "section": "9.8",
+          "score": -0.0391
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-LEAVE-2026#structure-0001-e5219947",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "1",
+          "score": -0.3108
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": -0.3937
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-LEAVE-2026#structure-0003-6a055a77",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "3",
+          "score": -0.4342
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-LEAVE-2026#structure-0005-7129dde5",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "5",
+          "score": -0.612
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "Q7",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 2,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0041-2bfd4f67",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 1.1871
+        },
+        {
+          "rank": 2,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0002-aca711bf",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "2",
+          "score": 0.2829
+        },
+        {
+          "rank": 3,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0001-df4e008e",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "1",
+          "score": 0.1542
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0137-c74bd643",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.1791
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0126-e27e6813",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.4254
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "Q8",
+      "set": "answerable",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 1,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-EMP-2026#structure-0003-94111723",
+          "policy_id": "ACME-EMP-2026",
+          "section": "3",
+          "score": 0.8046
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0002-c863d31b",
+          "policy_id": "ACME-EMP-2026",
+          "section": "2",
+          "score": 0.2931
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": 0.0046
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0056-134bca7b",
+          "policy_id": "SS-HB-2025",
+          "section": "8.3",
+          "score": -0.3274
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-EMP-2026#structure-0005-1187e97f",
+          "policy_id": "ACME-EMP-2026",
+          "section": "5",
+          "score": -0.531
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "R1",
+      "set": "refusal",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0063-825c3c54",
+          "policy_id": "SS-HB-2025",
+          "section": "9",
+          "score": 0.148
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0075-9927f910",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": -0.2357
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SS-HB-2025#structure-0057-bb019763",
+          "policy_id": "SS-HB-2025",
+          "section": "8.4",
+          "score": -0.4723
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0059-28050c5e",
+          "policy_id": "SS-HB-2025",
+          "section": "8.5",
+          "score": -0.6154
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0048-c20c8e5f",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": -0.8656
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "R2",
+      "set": "refusal",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-LEAVE-2026#structure-0003-6a055a77",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "3",
+          "score": -1.1323
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": -1.1773
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-EMP-2026#structure-0001-5295afa5",
+          "policy_id": "ACME-EMP-2026",
+          "section": "1",
+          "score": -1.1938
+        },
+        {
+          "rank": 4,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0004-ab6ca34c",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "4",
+          "score": -1.7632
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-EMP-2026#structure-0002-c863d31b",
+          "policy_id": "ACME-EMP-2026",
+          "section": "2",
+          "score": -1.973
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "R3",
+      "set": "refusal",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0041-2bfd4f67",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.29
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0034-4650bfc0",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.6066
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0131-ab92e3bb",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -1.4671
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0010-cb89ac97",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -1.7689
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0128-7a23059c",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -1.7832
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "REG-01",
+      "set": "regression",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 0.75,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": false,
+        "citation_source_available": true
+      },
+      "hit_rank": 3,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "ACME-EMP-2026#structure-0001-5295afa5",
+          "policy_id": "ACME-EMP-2026",
+          "section": "1",
+          "score": 0.0682
+        },
+        {
+          "rank": 2,
+          "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
+          "policy_id": "ACME-EMP-2026",
+          "section": "4",
+          "score": -0.0572
+        },
+        {
+          "rank": 3,
+          "chunk_id": "ACME-EMP-2026#structure-0003-94111723",
+          "policy_id": "ACME-EMP-2026",
+          "section": "3",
+          "score": -0.1857
+        },
+        {
+          "rank": 4,
+          "chunk_id": "ACME-EMP-2026#structure-0002-c863d31b",
+          "policy_id": "ACME-EMP-2026",
+          "section": "2",
+          "score": -0.218
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SS-HB-2025#structure-0056-134bca7b",
+          "policy_id": "SS-HB-2025",
+          "section": "8.3",
+          "score": -0.623
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "REG-02",
+      "set": "regression",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": 2,
+      "refused": false,
+      "gate": "",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0041-2bfd4f67",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": 1.1871
+        },
+        {
+          "rank": 2,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0002-aca711bf",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "2",
+          "score": 0.2829
+        },
+        {
+          "rank": 3,
+          "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0001-df4e008e",
+          "policy_id": "NORTHSTAR-REMOTE-2026",
+          "section": "1",
+          "score": 0.1542
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0137-c74bd643",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.1791
+        },
+        {
+          "rank": 5,
+          "chunk_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET#structure-0126-e27e6813",
+          "policy_id": "SYNTHETIC_HR_POLICY_RAG_TEST_DATASET",
+          "section": "",
+          "score": -0.4254
+        }
+      ],
+      "version": "improved"
+    },
+    {
+      "id": "REG-03",
+      "set": "regression",
+      "strategy": "structure",
+      "method": "hybrid",
+      "rerank": "local",
+      "score": 1.0,
+      "assertions": {
+        "retrieved": true,
+        "expected_answer_found": true,
+        "expected_refusal": true,
+        "citation_source_available": true
+      },
+      "hit_rank": null,
+      "refused": true,
+      "gate": "absent_from_corpus",
+      "top": [
+        {
+          "rank": 1,
+          "chunk_id": "SS-HB-2025#structure-0063-825c3c54",
+          "policy_id": "SS-HB-2025",
+          "section": "9",
+          "score": 0.1808
+        },
+        {
+          "rank": 2,
+          "chunk_id": "SS-HB-2025#structure-0077-8461bf59",
+          "policy_id": "SS-HB-2025",
+          "section": "9.10",
+          "score": -0.9105
+        },
+        {
+          "rank": 3,
+          "chunk_id": "SS-HB-2025#structure-0057-bb019763",
+          "policy_id": "SS-HB-2025",
+          "section": "8.4",
+          "score": -1.0013
+        },
+        {
+          "rank": 4,
+          "chunk_id": "SS-HB-2025#structure-0048-c20c8e5f",
+          "policy_id": "SS-HB-2025",
+          "section": "",
+          "score": -1.4936
+        },
+        {
+          "rank": 5,
+          "chunk_id": "ACME-LEAVE-2026#structure-0002-836f5471",
+          "policy_id": "ACME-LEAVE-2026",
+          "section": "2",
+          "score": -1.5417
+        }
+      ],
+      "version": "improved"
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "overall": 0.964,
+      "answerable": 1.0,
+      "refusal": 1.0,
+      "regression": 0.833
+    },
+    "improved": {
+      "overall": 0.982,
+      "answerable": 1.0,
+      "refusal": 1.0,
+      "regression": 0.917
+    }
+  },
+  "assertion_definition": "retrieved, expected answer/refusal, and source availability are each worth one point"
+}

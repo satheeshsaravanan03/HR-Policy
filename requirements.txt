@@ -1,0 +1,14 @@
+streamlit
+fastembed
+langchain
+langchain-core
+langchain-text-splitters
+langchain-google-genai
+langchain-groq
+langchain-chroma
+langchain-qdrant
+chromadb
+qdrant-client
+pymupdf
+python-dotenv
+numpy
