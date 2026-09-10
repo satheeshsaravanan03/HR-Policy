@@ -2,7 +2,6 @@
 
 Rule-based assertions run before any optional LLM judge.
 
-
 | Version | Overall | Answerable | Refusal | Regression |
 |---|---:|---:|---:|---:|
 | baseline | 96.4% | 100.0% | 100.0% | 83.3% |

@@ -2,22 +2,25 @@
 
     streamlit run app.py
 
-This is a testing surface, not a deliverable -- the task awards no marks for
-UI. It exists because three things are much easier to see than to read in a
-log: the two chunkers side by side on one question, the region filter changing
-the top result, and a refusal firing while the relevance scores stay high.
+Modes:
+  1. Ask — standard RAG: retrieve chunks, refusal gate, generated answer.
+  2. Retrieve — inspect top-k retrieved chunks without generation.
+  3. Rerank — compare original vs local cross-encoder reranked order.
+  4. Compare — independent Fixed Workflow vs Standalone Agent race.
+  5. Agent + Workflow — dynamic agent orchestrating predefined workflows.
 """
 
 from __future__ import annotations
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from rag.agent import run_agent, run_fixed_workflow  # noqa: E402
 from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
 from rag.index import collection_stats, ingest  # noqa: E402
@@ -157,8 +160,8 @@ with st.sidebar:
 
     mode = st.radio(
         "Mode",
-        ["Ask", "Retrieve", "Rerank"],
-        help="Ask generates an answer; Retrieve shows RAG chunks; Rerank compares original and reranked order.",
+        ["Ask", "Retrieve", "Rerank", "Compare", "Agent + Workflow"],
+        help="Ask: standard RAG; Retrieve: chunks only; Rerank: cross-encoder comparison; Compare: Fixed Workflow vs Standalone Agent race; Agent + Workflow: dynamic agent orchestrating workflows.",
     )
 
     strategy = st.selectbox(
@@ -239,6 +242,29 @@ with st.sidebar:
                         key=f"download_{report.name}",
                     )
 
+    with st.expander("Week 7 evaluations (Race)", expanded=False):
+        st.caption("Run the fixed-workflow vs standalone-agent race suite across 8 test scenarios.")
+        if st.button("Run Week 7 agent race", key="run_week7_eval", type="primary"):
+            scripts_dir = Path(__file__).resolve().parent / "scripts"
+            command = [sys.executable, str(scripts_dir / "10_week7_agent_eval.py")]
+            with st.spinner("Running Week 7 evaluation race across 8 scenarios..."):
+                completed = subprocess.run(
+                    command, cwd=str(Path(__file__).resolve().parent),
+                    capture_output=True, text=True, timeout=900,
+                )
+            if completed.returncode == 0:
+                st.success("Week 7 evaluation race completed.")
+            else:
+                st.error("Week 7 evaluation failed.")
+            st.code(completed.stdout or completed.stderr, language="text")
+            output_dir = Path(__file__).resolve().parent / "output"
+            for report in (output_dir / "week7_agent_race.md", output_dir / "week7_agent_race.json"):
+                if report.exists():
+                    st.download_button(
+                        f"Download {report.name}", report.read_bytes(), file_name=report.name,
+                        key=f"download_{report.name}",
+                    )
+
     st.caption(
         "Search-only avoids generation calls. Semantic and hybrid searches create "
         "one query embedding; BM25 runs locally over stored chunk text."
@@ -263,7 +289,11 @@ st.caption(
     "the box and run it straight away."
 )
 
-known, refusal = st.tabs(["Preset: known-answer questions", "Preset: should be refused"])
+known, refusal, week7_presets = st.tabs([
+    "Preset: known-answer questions",
+    "Preset: should be refused",
+    "Preset: Week 7 scenarios",
+])
 
 with known:
     st.caption("The 8 questions used for the measurement, with known-correct answers.")
@@ -294,11 +324,24 @@ with refusal:
             unsafe_allow_html=True,
         )
 
+with week7_presets:
+    st.caption("Scenarios demonstrating workflows, agents, multi-policy comparisons, and missing fact handling.")
+    w7_cases = [
+        ("W7-01", "Compare annual leave between Acme and SoftSuave employees.", "Multi-policy comparison across two organizations"),
+        ("W7-02", "Am I eligible to work from home full-time?", "Eligibility missing employee details -> agent returns needs_input"),
+        ("W7-03", "What is the nottice periond under permanent employment terms?", "Spelling noise requiring normalization / retry"),
+        ("W7-04", "What are the core working hours and attendance rules for an employee?", "Cross-policy context with distinct definitions"),
+    ]
+    for cid, cquery, cdesc in w7_cases:
+        cols = st.columns([1, 11])
+        if cols[0].button(cid, key=f"btn_{cid}", width="stretch"):
+            st.session_state.query = cquery
+            st.session_state.autorun = True
+        cols[1].markdown(f"{cquery}  \n<small>{cdesc}</small>", unsafe_allow_html=True)
+
 st.divider()
 
-# A form so that pressing Enter in the box submits. Without it, Enter merely
-# triggers a rerun, the Run button reads False, and the app looks like it only
-# accepts the preset questions.
+# A form so that pressing Enter in the box submits.
 with st.form("ask", clear_on_submit=False):
     query = st.text_input(
         "Your question",
@@ -308,7 +351,6 @@ with st.form("ask", clear_on_submit=False):
     submitted = st.form_submit_button("Run", type="primary")
 
 # A preset button sets the query and asks for an immediate run; consume the flag
-# so a later rerun does not fire the same question again.
 autorun = st.session_state.autorun
 st.session_state.autorun = False
 
@@ -380,11 +422,195 @@ def render_answer(query: str, strategy: str, region, top_k: int, search_method: 
     show_hits(result.hits)
 
 
+def render_compare(query: str, strategy: str, top_k: int) -> None:
+    st.subheader("Compare Mode: Fixed Workflow vs. Standalone Agent")
+    st.caption("The exact same question executes through two independent paths without sharing state or context.")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### Path A: Fixed Workflow")
+        st.caption("Deterministic pipeline: normalize → hybrid search → refusal gate → LLM generation")
+        with st.spinner("Executing fixed workflow..."):
+            fixed_res = run_fixed_workflow(query, strategy=strategy, top_k=top_k)
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Runtime", f"{fixed_res['metrics']['elapsed_ms']:.0f} ms")
+        m2.metric("Steps", fixed_res["metrics"]["step_count"])
+        m3.metric("Tool calls", fixed_res["metrics"]["tool_calls"])
+        m4.metric("LLM calls", fixed_res["metrics"]["llm_calls"])
+
+        if fixed_res["status"] == "refused":
+            st.error("**Refused by gate**")
+            st.markdown(fixed_res["answer"])
+        elif fixed_res["status"] == "error":
+            st.error("**Execution Error**")
+            st.markdown(fixed_res["answer"])
+        else:
+            st.success("**Answered from corpus**")
+            st.markdown(fixed_res["answer"])
+
+        if fixed_res.get("citations"):
+            with st.expander(f"Citations ({len(fixed_res['citations'])})"):
+                st.dataframe([
+                    {
+                        "resolves": "yes" if c.resolves else "NO",
+                        "chunk_id": c.chunk_id,
+                        "policy_id": c.policy_id,
+                        "section": c.section or "—",
+                    }
+                    for c in fixed_res["citations"]
+                ], hide_index=True, width="stretch")
+
+        with st.expander("Fixed workflow steps"):
+            st.dataframe([
+                {
+                    "step": s["step"],
+                    "workflow": s["workflow"],
+                    "decision": s["decision"],
+                    "status": s["result_status"],
+                    "summary": s["evidence_summary"],
+                }
+                for s in fixed_res.get("steps", [])
+            ], hide_index=True, width="stretch")
+
+        with st.expander(f"Retrieved chunks ({len(fixed_res.get('hits', []))})"):
+            show_hits(fixed_res.get("hits", []))
+
+    with col2:
+        st.markdown("### Path B: Standalone Agent")
+        st.caption("Dynamic agent loop with workflow selection, structured inspection, and safety limits")
+        with st.spinner("Executing standalone agent..."):
+            agent_res = run_agent(query, strategy=strategy, top_k=top_k)
+
+        a1, a2, a3, a4 = st.columns(4)
+        a1.metric("Runtime", f"{agent_res['metrics']['elapsed_ms']:.0f} ms")
+        a2.metric("Steps", agent_res["metrics"]["step_count"])
+        a3.metric("Tool calls", agent_res["metrics"]["tool_calls"])
+        a4.metric("LLM calls", agent_res["metrics"]["llm_calls"])
+
+        if agent_res["status"] == "refused":
+            st.error(f"**Refused by agent** — reason: `{agent_res.get('stop_reason', '')}`")
+            st.markdown(agent_res["answer"])
+        elif agent_res["status"] == "needs_input":
+            st.warning(f"**Clarification needed** — reason: `{agent_res.get('stop_reason', '')}`")
+            st.markdown(agent_res["answer"])
+        elif agent_res["status"] == "error":
+            st.error(f"**Agent Error** — reason: `{agent_res.get('stop_reason', '')}`")
+            st.markdown(agent_res["answer"])
+        else:
+            st.success(f"**Answered & audited** — reason: `{agent_res.get('stop_reason', '')}`")
+            st.markdown(agent_res["answer"])
+
+        if agent_res.get("citations"):
+            with st.expander(f"Citations ({len(agent_res['citations'])})"):
+                st.dataframe([
+                    {
+                        "resolves": "yes" if c.resolves else "NO",
+                        "chunk_id": c.chunk_id,
+                        "policy_id": c.policy_id,
+                        "section": c.section or "—",
+                    }
+                    for c in agent_res["citations"]
+                ], hide_index=True, width="stretch")
+
+        with st.expander("Agent decision trace"):
+            st.dataframe([
+                {
+                    "step": s["step"],
+                    "workflow": s["workflow"],
+                    "decision": s["decision"],
+                    "status": s["result_status"],
+                    "summary": s["evidence_summary"],
+                    "next": s["next_decision"],
+                }
+                for s in agent_res.get("steps", [])
+            ], hide_index=True, width="stretch")
+
+        with st.expander(f"Retrieved chunks ({len(agent_res.get('hits', []))})"):
+            show_hits(agent_res.get("hits", []))
+
+    st.divider()
+    st.subheader("Comparison Summary")
+    f_ms = fixed_res["metrics"]["elapsed_ms"]
+    a_ms = agent_res["metrics"]["elapsed_ms"]
+    diff_ms = abs(round(a_ms - f_ms, 1))
+    faster = "Fixed Workflow" if f_ms < a_ms else "Standalone Agent"
+    st.info(
+        f"**Speed:** {faster} was **{diff_ms} ms** faster.  \n"
+        f"**Workflows called by Agent:** `{', '.join(agent_res.get('workflows_called', []))}`  \n"
+        f"**Agent Stop Reason:** `{agent_res.get('stop_reason', 'none')}`"
+    )
+
+
+def render_agent_workflow(query: str, strategy: str, top_k: int) -> None:
+    st.subheader("Agent + Workflow Mode")
+    st.caption("The agent controls the sequence dynamically while delegating tasks to predefined reliable workflows.")
+
+    with st.spinner("Agent orchestrating workflows..."):
+        result = run_agent(query, strategy=strategy, top_k=top_k)
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Total runtime", f"{result['metrics']['elapsed_ms']:.0f} ms")
+    c2.metric("Agent steps", result["metrics"]["step_count"])
+    c3.metric("Tool calls", result["metrics"]["tool_calls"])
+    c4.metric("LLM calls", result["metrics"]["llm_calls"])
+    c5.metric("Status", result["status"].upper())
+
+    st.subheader("Agent Decision Trace")
+    step_rows = []
+    for s in result.get("steps", []):
+        step_rows.append({
+            "step": s["step"],
+            "workflow": s["workflow"],
+            "decision": s["decision"],
+            "status": s["result_status"],
+            "evidence summary": s["evidence_summary"],
+            "next decision": s["next_decision"],
+            "stop reason": s.get("stop_reason") or "—",
+        })
+    st.dataframe(step_rows, hide_index=True, width="stretch")
+
+    st.subheader("Final Output")
+    if result["status"] == "refused":
+        st.error(f"**Refused** — reason: `{result.get('stop_reason', '')}`")
+        st.markdown(result["answer"])
+    elif result["status"] == "needs_input":
+        st.warning(f"**Needs clarification** — reason: `{result.get('stop_reason', '')}`")
+        st.markdown(result["answer"])
+    elif result["status"] == "error":
+        st.error(f"**Error** — reason: `{result.get('stop_reason', '')}`")
+        st.markdown(result["answer"])
+    else:
+        st.success("**Answer approved and audited**")
+        st.markdown(result["answer"])
+
+        if result.get("citations"):
+            st.subheader("Resolved Citations")
+            st.dataframe([
+                {
+                    "resolves": "yes" if c.resolves else "NO",
+                    "chunk_id": c.chunk_id,
+                    "policy_id": c.policy_id,
+                    "section": c.section or "—",
+                }
+                for c in result["citations"]
+            ], hide_index=True, width="stretch")
+
+    if result.get("hits"):
+        st.subheader("Retrieved Policy Chunks")
+        show_hits(result["hits"])
+
+
 try:
     if mode == "Retrieve":
         render_search(query, strategy, region, top_k, search_method, rerank)
     elif mode == "Rerank":
         render_rerank(query, strategy, region, top_k, search_method)
+    elif mode == "Compare":
+        render_compare(query, strategy, top_k)
+    elif mode == "Agent + Workflow":
+        render_agent_workflow(query, strategy, top_k)
     else:
         render_answer(query, strategy, region, top_k, search_method, rerank)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed

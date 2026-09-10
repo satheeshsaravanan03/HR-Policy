@@ -260,7 +260,7 @@
           "chunk_id": "ACME-LEAVE-2026#structure-0001-e5219947",
           "policy_id": "ACME-LEAVE-2026",
           "section": "1",
-          "score": 0.8654
+          "score": 0.8655
         },
         {
           "rank": 4,
@@ -274,7 +274,7 @@
           "chunk_id": "ACME-LEAVE-2026#structure-0004-bea754bf",
           "policy_id": "ACME-LEAVE-2026",
           "section": "4",
-          "score": 0.8543
+          "score": 0.8544
         }
       ],
       "version": "baseline"
@@ -377,7 +377,7 @@
           "chunk_id": "SS-HB-2025#structure-0066-0a3777d2",
           "policy_id": "SS-HB-2025",
           "section": "9.3",
-          "score": 0.8435
+          "score": 0.8434
         },
         {
           "rank": 5,
@@ -480,7 +480,7 @@
           "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0000-3fe7942c",
           "policy_id": "NORTHSTAR-REMOTE-2026",
           "section": "",
-          "score": 0.8793
+          "score": 0.8792
         },
         {
           "rank": 4,
@@ -576,7 +576,7 @@
           "chunk_id": "SS-HB-2025#structure-0063-825c3c54",
           "policy_id": "SS-HB-2025",
           "section": "9",
-          "score": 0.8844
+          "score": 0.8843
         },
         {
           "rank": 2,
@@ -638,7 +638,7 @@
           "chunk_id": "ACME-EMP-2026#structure-0004-934e0182",
           "policy_id": "ACME-EMP-2026",
           "section": "4",
-          "score": 0.8139
+          "score": 0.8138
         },
         {
           "rank": 3,
@@ -810,7 +810,7 @@
           "chunk_id": "NORTHSTAR-REMOTE-2026#structure-0000-3fe7942c",
           "policy_id": "NORTHSTAR-REMOTE-2026",
           "section": "",
-          "score": 0.8793
+          "score": 0.8792
         },
         {
           "rank": 4,

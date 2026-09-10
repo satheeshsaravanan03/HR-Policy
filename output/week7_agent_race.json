@@ -1,0 +1,305 @@
+{
+  "total_cases": 8,
+  "aggregates": {
+    "fixed_workflow": {
+      "avg_runtime_ms": 12048.6,
+      "avg_steps": 3.0,
+      "total_tool_calls": 8,
+      "total_llm_calls": 6,
+      "correct_answers": 5,
+      "correct_refusals": 1,
+      "citation_validity_pct": 100.0,
+      "failures_timeouts": 0
+    },
+    "standalone_agent": {
+      "avg_runtime_ms": 11411.4,
+      "avg_steps": 1.8,
+      "total_tool_calls": 8,
+      "total_llm_calls": 6,
+      "correct_answers": 6,
+      "correct_refusals": 1,
+      "citation_validity_pct": 100.0,
+      "failures_timeouts": 0
+    }
+  },
+  "rows": [
+    {
+      "id": "TC-01",
+      "type": "Single-policy",
+      "query": "How many annual leave days does an Acme full-time employee receive per calendar year?",
+      "fixed": {
+        "status": "success",
+        "answer_preview": "Acme full\u2011time employees receive **18 days of annual leave per calendar year**.\u202f[CITE: ACME-LEAVE-2026#structure-0002-83",
+        "elapsed_ms": 12722.14,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "answer_correct": false,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "generation_complete"
+      },
+      "agent": {
+        "status": "success",
+        "answer_preview": "Acme full\u2011time employees receive **18 days of annual leave per calendar year**.\u202f[CITE: ACME-LEAVE-2026#structure-0002-83",
+        "elapsed_ms": 6903.6,
+        "step_count": 2,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "workflows_called": [
+          "policy_lookup",
+          "generate_and_audit"
+        ],
+        "answer_correct": false,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "answer_generated_and_audited"
+      }
+    },
+    {
+      "id": "TC-02",
+      "type": "Region-filtered",
+      "query": "How many casual or sick leaves does an employee at the Bangalore office get in a calendar year?",
+      "fixed": {
+        "status": "success",
+        "answer_preview": "An employee in the Bangalore office is entitled to **15 casual\u202f/\u202fsick leaves in a calendar year**.\u202f[CITE: SS-HB-2025#str",
+        "elapsed_ms": 7799.09,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "answer_correct": false,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "generation_complete"
+      },
+      "agent": {
+        "status": "success",
+        "answer_preview": "An employee in the Bangalore office is entitled to **15 casual\u202f/\u202fsick leaves** in a calendar year.\u202f[CITE: SS-HB-2025#str",
+        "elapsed_ms": 7631.99,
+        "step_count": 2,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "workflows_called": [
+          "policy_lookup",
+          "generate_and_audit"
+        ],
+        "answer_correct": false,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "answer_generated_and_audited"
+      }
+    },
+    {
+      "id": "TC-03",
+      "type": "Multi-policy comparison",
+      "query": "Compare annual leave between Acme and SoftSuave employees.",
+      "fixed": {
+        "status": "refused",
+        "answer_preview": "I cannot answer this from the indexed policy documents. Reason: no document contains compare.",
+        "elapsed_ms": 5697.72,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 0,
+        "answer_correct": false,
+        "refusal_correct": false,
+        "citation_validity": 100.0,
+        "citation_count": 0,
+        "stop_reason": "refusal_gate_fired"
+      },
+      "agent": {
+        "status": "success",
+        "answer_preview": "Based on the policy excerpts you provided, the documents do not contain any specific figures or rules about **annual lea",
+        "elapsed_ms": 11548.01,
+        "step_count": 2,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "workflows_called": [
+          "policy_comparison",
+          "generate_and_audit"
+        ],
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 3,
+        "stop_reason": "answer_generated_and_audited"
+      }
+    },
+    {
+      "id": "TC-04",
+      "type": "Eligibility missing info",
+      "query": "Am I eligible to work from home full-time?",
+      "fixed": {
+        "status": "success",
+        "answer_preview": "Based on the SoftSuave\u202fEmployee Handbook (India) you are **not automatically eligible for full\u2011time work\u2011from\u2011home**.   ",
+        "elapsed_ms": 18465.68,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 2,
+        "stop_reason": "generation_complete"
+      },
+      "agent": {
+        "status": "needs_input",
+        "answer_preview": "Additional employee details are required to answer this question accurately: - office location / employer organization  ",
+        "elapsed_ms": 0.24,
+        "step_count": 1,
+        "tool_calls": 1,
+        "llm_calls": 0,
+        "workflows_called": [
+          "policy_applicability"
+        ],
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 0,
+        "stop_reason": "needs_employee_information"
+      }
+    },
+    {
+      "id": "TC-05",
+      "type": "Retry / reformulation",
+      "query": "What is the nottice periond under permanent employment terms?",
+      "fixed": {
+        "status": "success",
+        "answer_preview": "A permanent employee must give **30\u202fcalendar days of written notice** before resigning, and the notice period starts on ",
+        "elapsed_ms": 14991.18,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "generation_complete"
+      },
+      "agent": {
+        "status": "success",
+        "answer_preview": "A permanent employee must give **30\u202fcalendar days of written notice** before resigning, and the notice period starts on ",
+        "elapsed_ms": 13149.7,
+        "step_count": 2,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "workflows_called": [
+          "policy_lookup",
+          "generate_and_audit"
+        ],
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "answer_generated_and_audited"
+      }
+    },
+    {
+      "id": "TC-06",
+      "type": "Typo-heavy",
+      "query": "What is the nottice periond for a permanent Acme employe?",
+      "fixed": {
+        "status": "success",
+        "answer_preview": "A permanent Acme employee must give **30\u202fcalendar days** of written notice before resigning.\u202f[CITE: ACME-EMP-2026#struct",
+        "elapsed_ms": 14045.39,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "generation_complete"
+      },
+      "agent": {
+        "status": "success",
+        "answer_preview": "A permanent Acme employee must give **30\u202fcalendar days** of written notice before resigning.\u202f[CITE: ACME-EMP-2026#struct",
+        "elapsed_ms": 13363.68,
+        "step_count": 2,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "workflows_called": [
+          "policy_lookup",
+          "generate_and_audit"
+        ],
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 1,
+        "stop_reason": "answer_generated_and_audited"
+      }
+    },
+    {
+      "id": "TC-07",
+      "type": "Unsupported refusal",
+      "query": "What is SoftSuave's sabbatical leave entitlement?",
+      "fixed": {
+        "status": "refused",
+        "answer_preview": "I cannot answer this from the indexed policy documents. Reason: no document contains sabbatical.",
+        "elapsed_ms": 5979.99,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 0,
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 0,
+        "stop_reason": "refusal_gate_fired"
+      },
+      "agent": {
+        "status": "refused",
+        "answer_preview": "I cannot answer this from the indexed policy documents. Reason: no document contains sabbatical.",
+        "elapsed_ms": 6210.72,
+        "step_count": 1,
+        "tool_calls": 1,
+        "llm_calls": 0,
+        "workflows_called": [
+          "policy_lookup"
+        ],
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 0,
+        "stop_reason": "refusal_gate_fired"
+      }
+    },
+    {
+      "id": "TC-08",
+      "type": "Conflicting policies",
+      "query": "What are the core working hours and attendance rules for an employee?",
+      "fixed": {
+        "status": "success",
+        "answer_preview": "**Core Working Hours**  *SoftSuave (India)* \u2013\u202fAll employees must work **9.30\u202fhours each day**. The normal shift times ar",
+        "elapsed_ms": 16687.41,
+        "step_count": 3,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 10,
+        "stop_reason": "generation_complete"
+      },
+      "agent": {
+        "status": "success",
+        "answer_preview": "**Core working hours (Soft\u202fSuave \u2013 India)**    - All employees must work **9.30\u202fhours each day** as dictated by their sh",
+        "elapsed_ms": 32483.39,
+        "step_count": 2,
+        "tool_calls": 1,
+        "llm_calls": 1,
+        "workflows_called": [
+          "policy_lookup",
+          "generate_and_audit"
+        ],
+        "answer_correct": true,
+        "refusal_correct": true,
+        "citation_validity": 100.0,
+        "citation_count": 6,
+        "stop_reason": "answer_generated_and_audited"
+      }
+    }
+  ]
+}
