@@ -27,7 +27,13 @@ def rerank(query: str, hits: list[Hit], top_k: int) -> list[Hit]:
     """Score query/chunk pairs locally and return the strongest ``top_k``."""
     if not hits:
         return []
-    scores = list(_model().rerank(query, [hit.content for hit in hits]))
+    # Truncate content to safe window and use small batch size to prevent ONNX OOM
+    docs = [hit.content[:1500] for hit in hits]
+    try:
+        scores = list(_model().rerank(query, docs, batch_size=4))
+    except Exception:
+        # Fall back to original retriever scores if ONNX allocation fails
+        return hits[:top_k]
 
     def adjusted(hit: Hit, score: float) -> float:
         # A heading-only chunk is not useful evidence even when its words match

@@ -12,3 +12,4 @@ qdrant-client
 pymupdf
 python-dotenv
 numpy
+langgraph
