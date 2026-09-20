@@ -32,6 +32,12 @@ from .generate import (
     refusal_check,
 )
 from .manifest import DOCUMENTS
+from .employee_data import (
+    calculate_employee_case,
+    format_employee_answer,
+    identifier_from_query,
+    lookup_record,
+)
 from .retrieve import (
     HYBRID,
     RERANK_LOCAL,
@@ -553,7 +559,51 @@ def policy_applicability(
 
 
 # ----------------------------------------------------------------------
-# Workflow 5: Policy audit
+# Workflow 6: Employee case lookup and calculation
+# ----------------------------------------------------------------------
+def employee_case(
+    query: str,
+    *,
+    identifier: str | None = None,
+) -> dict[str, Any]:
+    """Resolve an editable employee record and calculate requested values."""
+    steps: list[dict[str, str]] = []
+    key = identifier or identifier_from_query(query)
+    if not key:
+        return {
+            "workflow": "employee_case", "status": "needs_input", "steps": [
+                _step("identify_employee", "needs_input", "Provide an employee ID, customer ID, or email")
+            ], "hits": [], "citations": [], "answer_context": "",
+            "missing_information": ["employee_id, customer_id, or email"],
+            "evidence_ok": False, "reason": "employee identifier is required",
+            "record": None, "calculation": None, "answer": "",
+        }
+    steps.append(_step("identify_employee", "success", f"Looking up structured record for {key}"))
+    record = lookup_record(key)
+    if record is None:
+        return {
+            "workflow": "employee_case", "status": "needs_input", "steps": steps + [
+                _step("lookup_employee", "needs_input", f"No record found for {key}")
+            ], "hits": [], "citations": [], "answer_context": "",
+            "missing_information": [f"a valid employee record for {key}"],
+            "evidence_ok": False, "reason": "employee record not found",
+            "record": None, "calculation": None, "answer": "",
+        }
+    steps.append(_step("lookup_employee", "success", f"Loaded {record['employee_id']} from local structured data"))
+    calculation = calculate_employee_case(record, query)
+    steps.append(_step("calculate_employee_values", "success", f"Calculated {', '.join(calculation['requested'])}"))
+    answer = format_employee_answer(record, calculation)
+    steps.append(_step("return_structured_result", "success", "Returned calculated values without embedding employee data"))
+    return {
+        "workflow": "employee_case", "status": "success", "steps": steps,
+        "hits": [], "citations": [], "answer_context": "", "missing_information": [],
+        "evidence_ok": True, "reason": "", "record": record,
+        "calculation": calculation, "answer": answer,
+    }
+
+
+# ----------------------------------------------------------------------
+# Workflow 7: Policy audit
 # ----------------------------------------------------------------------
 def policy_audit(
     query: str,

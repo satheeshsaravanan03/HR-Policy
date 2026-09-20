@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "employee_id": "EMP-001",
+      "customer_id": "EMP-001",
+      "email": "employee001@example.com",
+      "name": "Demo Employee 001",
+      "region": "Azure",
+      "policy_id": "AZURE-HR-2026",
+      "experience_years": 0.8,
+      "current_leave_balance": 7,
+      "compensatory_leave_balance": 2,
+      "annual_leave_entitlement": 18,
+      "carry_forward_cap": 5,
+      "compensatory_leave_cap": 4
+    },
+    {
+      "employee_id": "EMP-002",
+      "customer_id": "EMP-002",
+      "email": "employee002@example.com",
+      "name": "Demo Employee 002",
+      "region": "Azure",
+      "policy_id": "AZURE-HR-2026",
+      "experience_years": 2.5,
+      "current_leave_balance": 14,
+      "compensatory_leave_balance": 3,
+      "annual_leave_entitlement": 24,
+      "carry_forward_cap": 10,
+      "compensatory_leave_cap": 6
+    },
+    {
+      "employee_id": "EMP-003",
+      "customer_id": "EMP-003",
+      "email": "employee003@example.com",
+      "name": "Demo Employee 003",
+      "region": "India",
+      "policy_id": "SS-HB-2025",
+      "experience_years": 1.2,
+      "current_leave_balance": 11,
+      "compensatory_leave_balance": 1,
+      "annual_leave_entitlement": 15,
+      "carry_forward_cap": 9,
+      "compensatory_leave_cap": 3
+    },
+    {
+      "employee_id": "EMP-004",
+      "customer_id": "EMP-004",
+      "email": "employee004@example.com",
+      "name": "Demo Employee 004",
+      "region": "United States",
+      "policy_id": "ACME-LEAVE-2026",
+      "experience_years": 3.7,
+      "current_leave_balance": 16,
+      "compensatory_leave_balance": 4,
+      "annual_leave_entitlement": 18,
+      "carry_forward_cap": 10,
+      "compensatory_leave_cap": 6
+    },
+    {
+      "employee_id": "EMP-005",
+      "customer_id": "EMP-005",
+      "email": "employee005@example.com",
+      "name": "Demo Employee 005",
+      "region": "United States",
+      "policy_id": "ACME-EMP-2026",
+      "experience_years": 0.4,
+      "current_leave_balance": 3,
+      "compensatory_leave_balance": 0,
+      "annual_leave_entitlement": 12,
+      "carry_forward_cap": 3,
+      "compensatory_leave_cap": 2
+    }
+  ]
+}

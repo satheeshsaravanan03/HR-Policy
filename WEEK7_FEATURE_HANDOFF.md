@@ -227,3 +227,51 @@ Run the following commands in PowerShell from the project root:
 1. **Do not use an unconstrained agent for routine queries:** Fixed workflows are faster, cost less, and eliminate unnecessary LLM reasoning steps when the question maps to a single known policy.
 2. **Use agents for dynamic routing and multi-step reasoning:** Agents excel at identifying multi-policy comparisons, recognizing when user-supplied facts are insufficient, and performing post-generation audits.
 3. **The Recommended Hybrid Pattern (Agent + Workflow):** In production, employ a lightweight classifier agent that routes simple queries directly into fast deterministic workflows (`policy_lookup`) and reserves multi-step orchestration (`policy_comparison`, `policy_applicability`, `policy_audit`) for complex scenarios.
+
+---
+
+## 11. Dynamic employee-data prototype
+
+The Week 7 agent now supports a separate structured employee-record layer for
+learning ERP-style questions such as leave balance, carry-forward, and
+compensatory leave.
+
+### Storage boundary
+
+- Policy documents and embeddings remain in Qdrant Cloud.
+- Synthetic editable employee records are stored in
+  `data/employee_records.json`.
+- Employee records are not embedded into Qdrant.
+- A future production integration can replace the JSON lookup with an
+  authenticated ERP/database API without changing policy retrieval.
+
+### New workflow and tools
+
+- `rag/employee_data.py` loads, validates, saves, and looks up records by
+  employee ID, customer ID, or email.
+- `employee_case` resolves the record and calculates requested values from
+  exact structured fields.
+- The agent routes employee-specific questions to `employee_case` and asks for
+  an identifier when one is missing.
+- Streamlit provides a **Dynamic employee records** editor with save and
+  download controls.
+
+### Example
+
+```text
+Question: How much leave can EMP-001 carry forward?
+→ lookup EMP-001
+→ read current balance and carry-forward cap
+→ calculate min(balance, cap)
+→ return the structured result
+```
+
+Run the prototype test with:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\test_employee_data.py
+```
+
+This prototype is for synthetic learning data. A production version must add
+authentication, authorization, audit logging, and live ERP data freshness
+checks before exposing personal employee information.

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import json
 from pathlib import Path
 
 import streamlit as st
@@ -23,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rag.agent import run_agent, run_fixed_workflow  # noqa: E402
 from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
+from rag.employee_data import DATA_PATH, load_records, save_records  # noqa: E402
 from rag.index import collection_stats, ingest  # noqa: E402
 from rag.manifest import CORPUS_DIR, DOCUMENTS, DocumentMeta, register_document  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
@@ -157,6 +159,31 @@ with st.sidebar:
                         ingest(strategy_name, [safe_name])
                 st.success(f"Indexed {safe_name} under both chunking strategies.")
                 st.rerun()
+
+    with st.expander("Dynamic employee records", expanded=False):
+        st.caption(
+            "Edit synthetic structured employee data used by the Week 7 agent. "
+            "These records stay in data/employee_records.json and are not embedded."
+        )
+        employee_data = load_records()
+        editor_key = "employee_records_editor"
+        if editor_key not in st.session_state:
+            st.session_state[editor_key] = json.dumps(employee_data, indent=2)
+        st.download_button(
+            "Download employee JSON",
+            st.session_state[editor_key],
+            file_name="employee_records.json",
+            mime="application/json",
+            key="download_employee_records",
+        )
+        st.text_area("Employee records JSON", key=editor_key, height=260)
+        if st.button("Save employee records", key="save_employee_records"):
+            try:
+                candidate = json.loads(st.session_state[editor_key])
+                save_records(candidate)
+                st.success(f"Saved {len(candidate.get('records', []))} record(s) to {DATA_PATH}")
+            except (ValueError, json.JSONDecodeError) as exc:
+                st.error(f"Could not save employee records: {exc}")
 
     mode = st.radio(
         "Mode",
@@ -331,6 +358,10 @@ with week7_presets:
         ("W7-02", "Am I eligible to work from home full-time?", "Eligibility missing employee details -> agent returns needs_input"),
         ("W7-03", "What is the nottice periond under permanent employment terms?", "Spelling noise requiring normalization / retry"),
         ("W7-04", "What are the core working hours and attendance rules for an employee?", "Cross-policy context with distinct definitions"),
+        ("W7-05", "What is the leave balance, carry-forward, and compensatory leave for EMP-001?", "Structured employee lookup and multi-value calculation"),
+        ("W7-06", "How much annual leave does employee003@example.com have and how much can be carried forward?", "Email lookup with editable employee record"),
+        ("W7-07", "For EMP-004, how much leave can be carried into next year?", "Employee-specific carry-forward calculation"),
+        ("W7-08", "What is my current leave balance and carry-forward amount?", "Missing employee identifier -> agent requests clarification"),
     ]
     for cid, cquery, cdesc in w7_cases:
         cols = st.columns([1, 11])

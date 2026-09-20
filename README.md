@@ -99,6 +99,15 @@ The file is copied into `corpus/`, metadata is persisted, and both Chroma
 collections are updated incrementally. Existing chunks are not re-embedded
 unnecessarily. The uploaded document can then be queried in all three modes.
 
+## Dynamic employee records
+
+Week 7 also includes a local structured-data prototype at
+`data/employee_records.json`. The agent can resolve an employee ID, customer ID,
+or email and calculate requested leave values from the editable record. These
+records are not embedded into Qdrant; Qdrant remains the store for policy
+documents and embeddings. Streamlit's **Dynamic employee records** panel can
+edit, save, and download the JSON data.
+
 ## Search strategies
 
 - **Semantic** — meaning-based retrieval; default.

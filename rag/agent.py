@@ -34,7 +34,9 @@ from .retrieve import (
     search,
     understand_query,
 )
+from .employee_data import identifier_from_query
 from .workflows import (
+    employee_case,
     evidence_validation,
     policy_applicability,
     policy_audit,
@@ -214,6 +216,11 @@ def _select_initial_workflow(query: str) -> tuple[str, str]:
     """Inspect query to select the most appropriate initial workflow."""
     lowered = query.lower()
 
+    if identifier_from_query(query) or any(
+        term in lowered for term in ("employee record", "leave balance", "carry forward", "compensatory leave")
+    ):
+        return "employee_case", "Detected employee-specific structured-data request"
+
     # Multi-policy comparison signals
     if any(k in lowered for k in ("compare", "difference", "versus", "vs", "between", "how do", "similarities")):
         return "policy_comparison", "Detected multi-policy comparison intent"
@@ -303,6 +310,34 @@ def run_agent(
 
         # Execute chosen workflow
         workflows_called.append(current_workflow)
+
+        if current_workflow == "employee_case":
+            tool_calls += 1
+            res = employee_case(query)
+            steps.append(
+                _agent_step_record(
+                    step=step_num,
+                    decision=initial_rationale if step_num == 1 else "Resolve employee record and calculate requested values",
+                    workflow="employee_case",
+                    input_str=query,
+                    result_status=res["status"],
+                    evidence_summary=(res.get("reason") or ", ".join(res.get("calculation", {}).get("requested", []))),
+                    next_decision="Return structured result" if res["status"] == "success" else "Request employee identifier or record",
+                    stop_reason="employee_case_complete" if res["status"] == "success" else "employee_data_missing",
+                )
+            )
+            if res["status"] == "success":
+                agent_status = "success"
+                stop_reason = "employee_case_complete"
+                final_answer = res["answer"]
+            else:
+                agent_status = "needs_input"
+                stop_reason = "employee_data_missing"
+                final_answer = (
+                    "I need additional employee information before I can calculate this.\n- "
+                    + "\n- ".join(res.get("missing_information", []))
+                )
+            break
 
         if current_workflow == "policy_comparison":
             tool_calls += 1
