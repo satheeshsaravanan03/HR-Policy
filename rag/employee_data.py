@@ -75,6 +75,17 @@ def identifier_from_query(query: str) -> str | None:
     return email.group(0).lower() if email else None
 
 
+def identifiers_from_query(query: str) -> list[str]:
+    """Return every employee/customer ID or email mentioned, in order."""
+    text = query or ""
+    values = []
+    for match in re.finditer(r"\b(?:EMP[-_ ]?\d+|CUST[-_ ]?\d+)\b", text, re.I):
+        values.append(match.group(0).replace(" ", "-").upper())
+    for match in re.finditer(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", text):
+        values.append(match.group(0).lower())
+    return list(dict.fromkeys(values))
+
+
 def calculate_employee_case(record: dict[str, Any], query: str) -> dict[str, Any]:
     """Calculate requested values from exact record fields, without guessing."""
     lowered = (query or "").lower()
@@ -118,4 +129,18 @@ def format_employee_answer(record: dict[str, Any], calculation: dict[str, Any]) 
         shown = int(value) if float(value).is_integer() else value
         lines.append(f"- {labels[key]}: **{shown} days**")
     lines.append("\nSource: editable structured employee record; policy calculations are not embedded in Qdrant.")
+    return "\n".join(lines)
+
+
+def format_employee_comparison(records: list[dict[str, Any]]) -> str:
+    lines = ["Employee structured-record comparison:", ""]
+    for record in records:
+        carry = min(float(record["current_leave_balance"]), float(record["carry_forward_cap"]))
+        comp = min(float(record["compensatory_leave_balance"]), float(record["compensatory_leave_cap"]))
+        lines.append(
+            f"- **{record['employee_id']}** ({record['region']}, {record['experience_years']} years): "
+            f"balance {record['current_leave_balance']} days; carry-forward {carry:g} days; "
+            f"compensatory leave {comp:g} days; policy `{record['policy_id']}`."
+        )
+    lines.append("\nThese are structured demo-record values. Policy evidence must be available in Qdrant before treating them as authoritative policy rules.")
     return "\n".join(lines)

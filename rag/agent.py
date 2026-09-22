@@ -35,10 +35,13 @@ from .retrieve import (
     understand_query,
 )
 from .employee_data import identifier_from_query
+from .employee_data import identifiers_from_query
 from .safety import unsafe_hits
 from .trajectory import write_trajectory
 from .workflows import (
     employee_case,
+    employee_comparison,
+    employee_policy_case,
     evidence_validation,
     policy_applicability,
     policy_audit,
@@ -232,6 +235,15 @@ def _select_initial_workflow(query: str) -> tuple[str, str]:
     """Inspect query to select the most appropriate initial workflow."""
     lowered = query.lower()
 
+    if any(term in lowered for term in ("show all employee", "reveal employee", "dump employee", "employee records")):
+        return "security_refusal", "Detected unauthorized employee-data request"
+
+    if len(identifiers_from_query(query)) >= 2:
+        return "employee_comparison", "Detected multiple employee identifiers"
+
+    if any(term in lowered for term in ("what policy applies", "which policy applies", "applicable policy", "policy for emp")):
+        return "employee_policy_case", "Detected employee-specific policy applicability request"
+
     if identifier_from_query(query) or any(
         term in lowered for term in ("employee record", "leave balance", "carry forward", "compensatory leave")
     ):
@@ -327,6 +339,43 @@ def run_agent(
 
         # Execute chosen workflow
         workflows_called.append(current_workflow)
+
+        if current_workflow == "security_refusal":
+            agent_status = "refused"
+            stop_reason = "unauthorized_data_request"
+            final_answer = "I cannot reveal employee records. Provide an authorized employee-specific question instead."
+            steps.append(_agent_step_record(step=step_num, decision=initial_rationale, workflow="security_refusal", input_str=query, result_status="refused", evidence_summary="Employee data export is not an allowed action", next_decision="Terminate", stop_reason=stop_reason))
+            break
+
+        if current_workflow == "employee_comparison":
+            tool_calls += 1
+            res = employee_comparison(query, strategy=strategy, top_k=top_k)
+            current_hits = res.get("hits", [])
+            steps.append(_agent_step_record(step=step_num, decision=initial_rationale, workflow="employee_comparison", input_str=query, result_status=res["status"], evidence_summary=res.get("reason") or f"Compared {len(res.get('records', []))} records", next_decision="Return comparison" if res["status"] == "success" else "Request two records", stop_reason="employee_comparison_complete" if res["status"] == "success" else "employee_comparison_missing"))
+            if res["status"] == "success":
+                final_answer = res["answer"]
+                stop_reason = "employee_comparison_complete"
+                agent_status = "success"
+            else:
+                final_answer = "I need two valid employee IDs, customer IDs, or emails to compare."
+                stop_reason = "employee_comparison_missing"
+                agent_status = "needs_input"
+            break
+
+        if current_workflow == "employee_policy_case":
+            tool_calls += 1
+            res = employee_policy_case(query, strategy=strategy, top_k=top_k)
+            current_hits = res.get("hits", [])
+            steps.append(_agent_step_record(step=step_num, decision=initial_rationale, workflow="employee_policy_case", input_str=query, result_status=res["status"], evidence_summary=res.get("reason") or f"Loaded {res.get('record', {}).get('policy_id', 'policy')}", next_decision="Return combined result" if res["status"] == "success" else "Request employee identifier", stop_reason="employee_policy_complete" if res["status"] == "success" else "employee_data_missing"))
+            if res["status"] == "success":
+                final_answer = res["answer"]
+                stop_reason = "employee_policy_complete"
+                agent_status = "success"
+            else:
+                final_answer = "I need a valid employee identifier before checking the applicable policy."
+                stop_reason = "employee_data_missing"
+                agent_status = "needs_input"
+            break
 
         if current_workflow == "employee_case":
             tool_calls += 1

@@ -35,7 +35,9 @@ from .manifest import DOCUMENTS
 from .employee_data import (
     calculate_employee_case,
     format_employee_answer,
+    format_employee_comparison,
     identifier_from_query,
+    identifiers_from_query,
     lookup_record,
 )
 from .retrieve import (
@@ -600,6 +602,68 @@ def employee_case(
         "evidence_ok": True, "reason": "", "record": record,
         "calculation": calculation, "answer": answer,
     }
+
+
+def employee_policy_case(query: str, *, strategy: str = "structure", top_k: int = 5) -> dict[str, Any]:
+    """Combine a structured employee record with policy evidence from Qdrant."""
+    key = identifier_from_query(query)
+    if not key:
+        return {"workflow": "employee_policy_case", "status": "needs_input", "steps": [
+            _step("identify_employee", "needs_input", "Provide an employee ID, customer ID, or email")
+        ], "hits": [], "citations": [], "answer_context": "", "missing_information": ["employee identifier"],
+        "evidence_ok": False, "reason": "employee identifier is required", "record": None, "answer": ""}
+    record = lookup_record(key)
+    if not record:
+        return {"workflow": "employee_policy_case", "status": "needs_input", "steps": [
+            _step("lookup_employee", "needs_input", f"No record found for {key}")
+        ], "hits": [], "citations": [], "answer_context": "", "missing_information": [f"valid employee record for {key}"],
+        "evidence_ok": False, "reason": "employee record not found", "record": None, "answer": ""}
+    hits = search(strategy, query, top_k=top_k, method=HYBRID, rerank=RERANK_LOCAL, policy_id=record["policy_id"])
+    if any(term in query.lower() for term in ("what policy applies", "which policy applies", "applicable policy")):
+        calculation = {"requested": [], "values": {}}
+        answer = f"Employee `{record['employee_id']}` is associated with policy `{record['policy_id']}` for region `{record['region']}`."
+    else:
+        calculation = calculate_employee_case(record, query)
+        answer = format_employee_answer(record, calculation)
+    if hits:
+        sections = sorted({h.section for h in hits if h.section})
+        answer += f"\nPolicy evidence retrieved from Qdrant: sections {', '.join(sections) if sections else 'document text'}."
+    if not hits:
+        answer += f"\n\nPolicy evidence for `{record['policy_id']}` was not found in Qdrant, so these are not verified policy-rule claims."
+    return {
+        "workflow": "employee_policy_case", "status": "success", "steps": [
+            _step("lookup_employee", "success", f"Loaded {record['employee_id']}"),
+            _step("policy_lookup", "success" if hits else "missing", f"Found {len(hits)} chunks for {record['policy_id']}"),
+            _step("calculate_values", "success", f"Calculated {', '.join(calculation['requested'])}"),
+        ], "hits": hits, "citations": [], "answer_context": _context(hits) if hits else "",
+        "missing_information": [], "evidence_ok": bool(hits), "reason": "" if hits else "policy evidence not indexed",
+        "record": record, "calculation": calculation, "answer": answer,
+    }
+
+
+def employee_comparison(query: str, *, strategy: str = "structure", top_k: int = 5) -> dict[str, Any]:
+    """Resolve and compare every employee mentioned in a question."""
+    keys = identifiers_from_query(query)
+    records = [lookup_record(key) for key in keys]
+    records = [record for record in records if record]
+    if len(records) < 2:
+        return {"workflow": "employee_comparison", "status": "needs_input", "steps": [
+            _step("identify_employees", "needs_input", "Provide two valid employee IDs, customer IDs, or emails")
+        ], "hits": [], "citations": [], "answer_context": "", "missing_information": ["two valid employee records"],
+        "evidence_ok": False, "reason": "two employee records are required", "records": records, "answer": ""}
+    all_hits: list[Hit] = []
+    for record in records:
+        all_hits.extend(search(strategy, query, top_k=max(1, top_k // len(records)), method=HYBRID, rerank=RERANK_LOCAL, policy_id=record["policy_id"]))
+    answer = format_employee_comparison(records)
+    if len(all_hits) < 2:
+        answer += "\n\nOne or more policy documents are not indexed, so this comparison uses structured demo-record values only."
+    return {"workflow": "employee_comparison", "status": "success", "steps": [
+        _step("identify_employees", "success", f"Resolved {len(records)} employee records"),
+        _step("lookup_policies", "success" if all_hits else "missing", f"Retrieved {len(all_hits)} policy chunks"),
+        _step("compare_values", "success", "Compared balance, carry-forward, compensatory leave, and policy IDs"),
+    ], "hits": all_hits, "citations": [], "answer_context": _context(all_hits) if all_hits else "",
+    "missing_information": [], "evidence_ok": len(all_hits) >= 2, "reason": "" if all_hits else "policy evidence missing",
+    "records": records, "answer": answer}
 
 
 # ----------------------------------------------------------------------
