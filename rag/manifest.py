@@ -69,6 +69,14 @@ DOCUMENTS: tuple[DocumentMeta, ...] = (
         date_source="stated in policy text",
         carries_leave_policy=False,
     ),
+    DocumentMeta(
+        source_file="Azure-HR-Leave-Policy-2026.md",
+        policy_id="AZURE-HR-2026",
+        region="Azure",
+        effective_date="2026-01-01",
+        date_source="stated in policy text",
+        carries_leave_policy=True,
+    ),
 )
 
 # Uploaded documents are persisted as metadata so Streamlit restarts do not

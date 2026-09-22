@@ -27,9 +27,14 @@ def main() -> None:
     assert missing["status"] == "needs_input"
     assert missing["stop_reason"] == "employee_data_missing"
 
+    personal_missing = run_agent("How many leaves do I have?")
+    assert personal_missing["status"] == "needs_input"
+    assert personal_missing["workflows_called"] == ["employee_case"]
+
     answer = run_agent("How much leave can employee001@example.com carry forward?")
     assert answer["status"] == "success"
-    assert "employee_case" in answer["workflows_called"]
+    assert "employee_policy_case" in answer["workflows_called"]
+    assert "AZURE-HR-2026" in answer["answer"]
     comparison = run_agent("Compare the leave rules applicable to EMP-001 and EMP-004.")
     assert comparison["status"] == "success"
     assert comparison["workflows_called"] == ["employee_comparison"]

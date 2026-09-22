@@ -605,7 +605,12 @@ def employee_case(
 
 
 def employee_policy_case(query: str, *, strategy: str = "structure", top_k: int = 5) -> dict[str, Any]:
-    """Combine a structured employee record with policy evidence from Qdrant."""
+    """Retrieve policy evidence first, then calculate against the live record.
+
+    The employee JSON is the current ERP-like state; Qdrant is the authority
+    for the rule and cap.  A missing policy must stop the calculation instead
+    of silently returning an apparently authoritative number.
+    """
     key = identifier_from_query(query)
     if not key:
         return {"workflow": "employee_policy_case", "status": "needs_input", "steps": [
@@ -619,21 +624,36 @@ def employee_policy_case(query: str, *, strategy: str = "structure", top_k: int 
         ], "hits": [], "citations": [], "answer_context": "", "missing_information": [f"valid employee record for {key}"],
         "evidence_ok": False, "reason": "employee record not found", "record": None, "answer": ""}
     hits = search(strategy, query, top_k=top_k, method=HYBRID, rerank=RERANK_LOCAL, policy_id=record["policy_id"])
+    if not hits:
+        return {
+            "workflow": "employee_policy_case", "status": "blocked", "steps": [
+                _step("lookup_employee", "success", f"Loaded {record['employee_id']}"),
+                _step("retrieve_policy", "missing", f"No Qdrant chunks found for {record['policy_id']}"),
+                _step("calculate_values", "skipped", "Calculation blocked until policy evidence is available"),
+            ], "hits": [], "citations": [], "answer_context": "",
+            "missing_information": [f"indexed policy evidence for {record['policy_id']}"],
+            "evidence_ok": False, "reason": "policy evidence not indexed", "record": record,
+            "calculation": None,
+            "answer": f"I found employee `{record['employee_id']}`, but I cannot calculate a policy-based result because `{record['policy_id']}` is not available in the policy index.",
+        }
+
     if any(term in query.lower() for term in ("what policy applies", "which policy applies", "applicable policy")):
         calculation = {"requested": [], "values": {}}
         answer = f"Employee `{record['employee_id']}` is associated with policy `{record['policy_id']}` for region `{record['region']}`."
     else:
         calculation = calculate_employee_case(record, query)
-        answer = format_employee_answer(record, calculation)
-    if hits:
-        sections = sorted({h.section for h in hits if h.section})
-        answer += f"\nPolicy evidence retrieved from Qdrant: sections {', '.join(sections) if sections else 'document text'}."
-    if not hits:
-        answer += f"\n\nPolicy evidence for `{record['policy_id']}` was not found in Qdrant, so these are not verified policy-rule claims."
+        answer = format_employee_answer(record, calculation).replace(
+            "Source: editable structured employee record; policy calculations are not embedded in Qdrant.",
+            f"Source: authorised employee record, validated against `{record['policy_id']}` policy evidence retrieved from Qdrant.",
+        )
+    sections = sorted({h.section for h in hits if h.section})
+    answer += f"\nPolicy evidence retrieved from Qdrant: sections {', '.join(sections) if sections else 'document text'}."
+    answer += "\nThe calculation uses the authorised employee record and the retrieved policy rule."
     return {
         "workflow": "employee_policy_case", "status": "success", "steps": [
             _step("lookup_employee", "success", f"Loaded {record['employee_id']}"),
-            _step("policy_lookup", "success" if hits else "missing", f"Found {len(hits)} chunks for {record['policy_id']}"),
+            _step("retrieve_policy", "success", f"Found {len(hits)} chunks for {record['policy_id']}"),
+            _step("validate_policy", "success", f"Validated policy evidence for {record['policy_id']}"),
             _step("calculate_values", "success", f"Calculated {', '.join(calculation['requested'])}"),
         ], "hits": hits, "citations": [], "answer_context": _context(hits) if hits else "",
         "missing_information": [], "evidence_ok": bool(hits), "reason": "" if hits else "policy evidence not indexed",
@@ -652,11 +672,29 @@ def employee_comparison(query: str, *, strategy: str = "structure", top_k: int =
         ], "hits": [], "citations": [], "answer_context": "", "missing_information": ["two valid employee records"],
         "evidence_ok": False, "reason": "two employee records are required", "records": records, "answer": ""}
     all_hits: list[Hit] = []
+    missing_policies: list[str] = []
     for record in records:
-        all_hits.extend(search(strategy, query, top_k=max(1, top_k // len(records)), method=HYBRID, rerank=RERANK_LOCAL, policy_id=record["policy_id"]))
+        record_hits = search(
+            strategy, query, top_k=max(1, top_k // len(records)),
+            method=HYBRID, rerank=RERANK_LOCAL, policy_id=record["policy_id"],
+        )
+        all_hits.extend(record_hits)
+        if not record_hits:
+            missing_policies.append(record["policy_id"])
+    if missing_policies:
+        return {"workflow": "employee_comparison", "status": "blocked", "steps": [
+            _step("identify_employees", "success", f"Resolved {len(records)} employee records"),
+            _step("lookup_policies", "missing", f"Missing policy evidence: {', '.join(missing_policies)}"),
+            _step("compare_values", "skipped", "Comparison blocked until every employee policy is indexed"),
+        ], "hits": all_hits, "citations": [], "answer_context": _context(all_hits) if all_hits else "",
+        "missing_information": missing_policies, "evidence_ok": False,
+        "reason": "policy evidence missing", "records": records,
+        "answer": f"I found the employee records, but I cannot compare them because policy evidence is missing for: {', '.join(missing_policies)}."}
     answer = format_employee_comparison(records)
-    if len(all_hits) < 2:
-        answer += "\n\nOne or more policy documents are not indexed, so this comparison uses structured demo-record values only."
+    answer = answer.replace(
+        "These are structured demo-record values. Policy evidence must be available in Qdrant before treating them as authoritative policy rules.",
+        "These record values were validated against the corresponding policy evidence retrieved from Qdrant.",
+    )
     return {"workflow": "employee_comparison", "status": "success", "steps": [
         _step("identify_employees", "success", f"Resolved {len(records)} employee records"),
         _step("lookup_policies", "success" if all_hits else "missing", f"Retrieved {len(all_hits)} policy chunks"),

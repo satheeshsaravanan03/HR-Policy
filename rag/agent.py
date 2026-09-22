@@ -244,6 +244,22 @@ def _select_initial_workflow(query: str) -> tuple[str, str]:
     if any(term in lowered for term in ("what policy applies", "which policy applies", "applicable policy", "policy for emp")):
         return "employee_policy_case", "Detected employee-specific policy applicability request"
 
+    # Employee leave questions must be policy-first: retrieve the employee's
+    # policy evidence before calculating a value from the live record.
+    if identifier_from_query(query) and any(
+        term in lowered
+        for term in ("leave", "carry", "forward", "compensatory", "annual", "balance", "entitlement")
+    ):
+        return "employee_policy_case", "Detected employee leave question requiring policy evidence"
+
+    # A personal leave question without an identifier must never fall through
+    # to generic corpus retrieval. Ask for the employee ID instead.
+    if (
+        any(term in lowered for term in ("my leave", "my balance", "my carry", "my entitlement", "how many leaves"))
+        or ("do i have" in lowered and any(term in lowered for term in ("leave", "balance", "carry", "compensatory")))
+    ):
+        return "employee_case", "Detected personal leave question without an employee identifier"
+
     if identifier_from_query(query) or any(
         term in lowered for term in ("employee record", "leave balance", "carry forward", "compensatory leave")
     ):
@@ -351,30 +367,32 @@ def run_agent(
             tool_calls += 1
             res = employee_comparison(query, strategy=strategy, top_k=top_k)
             current_hits = res.get("hits", [])
-            steps.append(_agent_step_record(step=step_num, decision=initial_rationale, workflow="employee_comparison", input_str=query, result_status=res["status"], evidence_summary=res.get("reason") or f"Compared {len(res.get('records', []))} records", next_decision="Return comparison" if res["status"] == "success" else "Request two records", stop_reason="employee_comparison_complete" if res["status"] == "success" else "employee_comparison_missing"))
+            inner_path = " -> ".join(s.get("name", "step") for s in res.get("steps", []))
+            steps.append(_agent_step_record(step=step_num, decision=initial_rationale, workflow="employee_comparison", input_str=query, result_status=res["status"], evidence_summary=res.get("reason") or f"Compared {len(res.get('records', []))} records ({inner_path})", next_decision="Return comparison" if res["status"] == "success" else "Request two records", stop_reason="employee_comparison_complete" if res["status"] == "success" else "employee_comparison_missing"))
             if res["status"] == "success":
                 final_answer = res["answer"]
                 stop_reason = "employee_comparison_complete"
                 agent_status = "success"
             else:
-                final_answer = "I need two valid employee IDs, customer IDs, or emails to compare."
-                stop_reason = "employee_comparison_missing"
-                agent_status = "needs_input"
+                final_answer = res.get("answer") or "I need two valid employee IDs, customer IDs, or emails to compare."
+                stop_reason = "employee_comparison_blocked" if res["status"] == "blocked" else "employee_comparison_missing"
+                agent_status = "blocked" if res["status"] == "blocked" else "needs_input"
             break
 
         if current_workflow == "employee_policy_case":
             tool_calls += 1
             res = employee_policy_case(query, strategy=strategy, top_k=top_k)
             current_hits = res.get("hits", [])
-            steps.append(_agent_step_record(step=step_num, decision=initial_rationale, workflow="employee_policy_case", input_str=query, result_status=res["status"], evidence_summary=res.get("reason") or f"Loaded {res.get('record', {}).get('policy_id', 'policy')}", next_decision="Return combined result" if res["status"] == "success" else "Request employee identifier", stop_reason="employee_policy_complete" if res["status"] == "success" else "employee_data_missing"))
+            inner_path = " -> ".join(s.get("name", "step") for s in res.get("steps", []))
+            steps.append(_agent_step_record(step=step_num, decision=initial_rationale, workflow="employee_policy_case", input_str=query, result_status=res["status"], evidence_summary=res.get("reason") or f"Loaded {res.get('record', {}).get('policy_id', 'policy')} ({inner_path})", next_decision="Return combined result" if res["status"] == "success" else "Request employee identifier", stop_reason="employee_policy_complete" if res["status"] == "success" else "employee_data_missing"))
             if res["status"] == "success":
                 final_answer = res["answer"]
                 stop_reason = "employee_policy_complete"
                 agent_status = "success"
             else:
-                final_answer = "I need a valid employee identifier before checking the applicable policy."
-                stop_reason = "employee_data_missing"
-                agent_status = "needs_input"
+                final_answer = res.get("answer") or "I need a valid employee identifier before checking the applicable policy."
+                stop_reason = "employee_policy_blocked" if res["status"] == "blocked" else "employee_data_missing"
+                agent_status = "blocked" if res["status"] == "blocked" else "needs_input"
             break
 
         if current_workflow == "employee_case":

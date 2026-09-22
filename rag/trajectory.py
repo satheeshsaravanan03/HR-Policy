@@ -32,3 +32,24 @@ def write_trajectory(*, query: str, steps, status: str, workflows_called,
     with _LOCK, TRAJECTORY_PATH.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
     return record["timestamp"]
+
+
+def load_trajectories() -> list[dict]:
+    """Load records, including recovery of concatenated JSON lines."""
+    if not TRAJECTORY_PATH.exists():
+        return []
+    text = TRAJECTORY_PATH.read_text(encoding="utf-8")
+    decoder = json.JSONDecoder()
+    records: list[dict] = []
+    position = 0
+    while position < len(text):
+        try:
+            value, end = decoder.raw_decode(text, position)
+            if isinstance(value, dict):
+                records.append(value)
+            position = end
+        except json.JSONDecodeError:
+            position += 1
+        while position < len(text) and text[position].isspace():
+            position += 1
+    return records

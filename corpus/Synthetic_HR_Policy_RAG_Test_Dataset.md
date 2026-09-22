@@ -325,6 +325,10 @@ Northstar Digital Solutions Pvt. Ltd. maintains this policy to provide consisten
 - People Operations may maintain supporting records for audit, compliance, payroll, or operational purposes. Access is limited according to role and business need.
 - Policy decisions should be based on documented facts rather than assumptions. Employees may ask for clarification without fear of retaliation.
 - The company may periodically review this rule and communicate changes through official internal channels.
+- Employees may carry forward up to **10 unused annual-leave days** into the next calendar year. Any unused balance above 10 days expires on 31 March unless People Operations approves a written exception.
+
+### Compensatory Leave
+An employee who works at least **8 hours on an officially designated company holiday**, with prior manager approval, earns **1 compensatory-leave day**. The day must be used within 60 calendar days and requires manager approval when requested. Compensatory leave is recorded separately from annual, sick, and casual leave.
 
 ### Leave Approval
 Northstar Digital Solutions Pvt. Ltd. maintains this policy to provide consistent expectations for employees and managers. The policy applies to eligible employees unless a written exception, employment agreement, or applicable law states otherwise. Employees should contact People Operations when a situation is unclear. Managers are responsible for applying the policy consistently and documenting exceptions.
@@ -978,6 +982,7 @@ Northstar Digital Solutions Pvt. Ltd. maintains this policy to provide consisten
 - People Operations may maintain supporting records for audit, compliance, payroll, or operational purposes. Access is limited according to role and business need.
 - Policy decisions should be based on documented facts rather than assumptions. Employees may ask for clarification without fear of retaliation.
 - The company may periodically review this rule and communicate changes through official internal channels.
+- Access to employee, payroll, and company systems is granted on a **role-and-business-need basis** using least privilege. Employees must not use another person's account, share credentials, or access records unrelated to their assigned duties. Access must be removed or changed when an employee changes role or leaves the company.
 
 ### Data Handling
 Northstar Digital Solutions Pvt. Ltd. maintains this policy to provide consistent expectations for employees and managers. The policy applies to eligible employees unless a written exception, employment agreement, or applicable law states otherwise. Employees should contact People Operations when a situation is unclear. Managers are responsible for applying the policy consistently and documenting exceptions.

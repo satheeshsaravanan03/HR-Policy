@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import json
 from pathlib import Path
 
 import streamlit as st
@@ -24,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rag.agent import run_agent, run_fixed_workflow  # noqa: E402
 from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
-from rag.employee_data import DATA_PATH, load_records, save_records  # noqa: E402
 from rag.index import collection_stats, ingest  # noqa: E402
 from rag.manifest import CORPUS_DIR, DOCUMENTS, DocumentMeta, register_document  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
@@ -160,31 +158,6 @@ with st.sidebar:
                 st.success(f"Indexed {safe_name} under both chunking strategies.")
                 st.rerun()
 
-    with st.expander("Dynamic employee records", expanded=False):
-        st.caption(
-            "Edit synthetic structured employee data used by the Week 7 agent. "
-            "These records stay in data/employee_records.json and are not embedded."
-        )
-        employee_data = load_records()
-        editor_key = "employee_records_editor"
-        if editor_key not in st.session_state:
-            st.session_state[editor_key] = json.dumps(employee_data, indent=2)
-        st.download_button(
-            "Download employee JSON",
-            st.session_state[editor_key],
-            file_name="employee_records.json",
-            mime="application/json",
-            key="download_employee_records",
-        )
-        st.text_area("Employee records JSON", key=editor_key, height=260)
-        if st.button("Save employee records", key="save_employee_records"):
-            try:
-                candidate = json.loads(st.session_state[editor_key])
-                save_records(candidate)
-                st.success(f"Saved {len(candidate.get('records', []))} record(s) to {DATA_PATH}")
-            except (ValueError, json.JSONDecodeError) as exc:
-                st.error(f"Could not save employee records: {exc}")
-
     mode = st.radio(
         "Mode",
         ["Ask", "Retrieve", "Rerank", "Compare", "Agent + Workflow"],
@@ -313,6 +286,27 @@ with st.sidebar:
                         f"Download {report.name}", report.read_bytes(), file_name=report.name,
                         key=f"download_{report.name}",
                     )
+        st.caption("Compare recorded trajectories before and after a routing fix.")
+        cutoff = st.text_input(
+            "Before/after cutoff (ISO timestamp)",
+            value="2026-09-22T18:33:00+00:00",
+            key="week8_cutoff",
+        )
+        if st.button("Compare trajectory history", key="compare_week8_history"):
+            command = [
+                sys.executable,
+                str(Path(__file__).resolve().parent / "scripts" / "12_week8_before_after.py"),
+                "--cutoff", cutoff,
+            ]
+            completed = subprocess.run(
+                command, cwd=str(Path(__file__).resolve().parent),
+                capture_output=True, text=True, timeout=120,
+            )
+            if completed.returncode == 0:
+                st.success("Trajectory before/after comparison completed.")
+            else:
+                st.error("Trajectory comparison failed.")
+            st.code(completed.stdout or completed.stderr, language="text")
 
     st.caption(
         "Search-only avoids generation calls. Semantic and hybrid searches create "
