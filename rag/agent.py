@@ -35,6 +35,8 @@ from .retrieve import (
     understand_query,
 )
 from .employee_data import identifier_from_query
+from .safety import unsafe_hits
+from .trajectory import write_trajectory
 from .workflows import (
     employee_case,
     evidence_validation,
@@ -116,6 +118,7 @@ def run_fixed_workflow(
         method=method,
         rerank=rerank,
     )
+    safety_findings = unsafe_hits(hits)
     steps.append(
         _agent_step_record(
             step=2,
@@ -128,7 +131,20 @@ def run_fixed_workflow(
         )
     )
 
-    # Step 3: Refusal gate check
+    # Step 3: Reject instruction-like text from retrieved documents before any
+    # model sees it. Retrieved content is data, never an instruction source.
+    if safety_findings:
+        elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        return {
+            "mode": "fixed_workflow", "status": "refused", "steps": steps,
+            "workflows_called": ["fixed_rag_pipeline"],
+            "answer": "I cannot use the retrieved document because it contains an unsafe instruction-like passage.",
+            "citations": [], "hits": hits, "stop_reason": "untrusted_document_instruction",
+            "safety_findings": safety_findings,
+            "metrics": {"step_count": len(steps), "tool_calls": tool_calls, "llm_calls": llm_calls, "elapsed_ms": elapsed_ms},
+        }
+
+    # Step 4: Refusal gate check
     refuse, gate, reason = refusal_check(norm_query, hits)
     if refuse:
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
@@ -268,6 +284,7 @@ def run_agent(
     citations: list[Citation] = []
     stop_reason = ""
     agent_status = "success"
+    safety_findings: list[dict[str, str]] = []
 
     # Step 1: Initial decision
     current_workflow, initial_rationale = _select_initial_workflow(query)
@@ -343,6 +360,7 @@ def run_agent(
             tool_calls += 1
             res = policy_comparison(query, strategy=strategy, top_k=top_k)
             current_hits = res.get("hits", [])
+            safety_findings = unsafe_hits(current_hits)
             steps.append(
                 _agent_step_record(
                     step=step_num,
@@ -355,6 +373,11 @@ def run_agent(
                     stop_reason="" if res["status"] == "success" else "refused_in_comparison",
                 )
             )
+            if safety_findings:
+                agent_status = "refused"
+                stop_reason = "untrusted_document_instruction"
+                final_answer = "I cannot use the retrieved document because it contains an unsafe instruction-like passage."
+                break
             if res["status"] != "success":
                 agent_status = "refused"
                 stop_reason = "refused_in_comparison"
@@ -409,6 +432,7 @@ def run_agent(
             tool_calls += 1
             res = policy_lookup(query, strategy=strategy, top_k=top_k)
             current_hits = res.get("hits", [])
+            safety_findings = unsafe_hits(current_hits)
             steps.append(
                 _agent_step_record(
                     step=step_num,
@@ -421,6 +445,11 @@ def run_agent(
                     stop_reason="" if res["status"] == "success" else "refusal_gate_fired",
                 )
             )
+            if safety_findings:
+                agent_status = "refused"
+                stop_reason = "untrusted_document_instruction"
+                final_answer = "I cannot use the retrieved document because it contains an unsafe instruction-like passage."
+                break
             if res["status"] != "success":
                 agent_status = "refused"
                 stop_reason = "refusal_gate_fired"
@@ -472,6 +501,18 @@ def run_agent(
             break
 
     elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    metrics = {
+        "step_count": len(steps),
+        "tool_calls": tool_calls,
+        "llm_calls": llm_calls,
+        "elapsed_ms": elapsed_ms,
+    }
+    write_trajectory(
+        query=query, steps=steps, status=agent_status,
+        workflows_called=workflows_called, answer=final_answer,
+        stop_reason=stop_reason, metrics=metrics,
+        safety_findings=safety_findings,
+    )
     return {
         "mode": "agent",
         "status": agent_status,
@@ -481,10 +522,6 @@ def run_agent(
         "citations": citations,
         "hits": current_hits,
         "stop_reason": stop_reason,
-        "metrics": {
-            "step_count": len(steps),
-            "tool_calls": tool_calls,
-            "llm_calls": llm_calls,
-            "elapsed_ms": elapsed_ms,
-        },
+        "metrics": metrics,
+        "safety_findings": safety_findings,
     }

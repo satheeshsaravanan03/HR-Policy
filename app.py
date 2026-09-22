@@ -292,6 +292,28 @@ with st.sidebar:
                         key=f"download_{report.name}",
                     )
 
+    with st.expander("Week 8 trajectory and safety evaluation", expanded=False):
+        st.caption("Check agent paths, prompt-injection defense, and remaining risks.")
+        if st.button("Run Week 8 trajectory evaluation", key="run_week8_eval", type="primary"):
+            command = [sys.executable, str(Path(__file__).resolve().parent / "scripts" / "11_week8_trajectory_eval.py")]
+            with st.spinner("Evaluating agent trajectories and safety..."):
+                completed = subprocess.run(
+                    command, cwd=str(Path(__file__).resolve().parent),
+                    capture_output=True, text=True, timeout=900,
+                )
+            if completed.returncode == 0:
+                st.success("Week 8 trajectory evaluation completed.")
+            else:
+                st.error("Week 8 trajectory evaluation failed.")
+            st.code(completed.stdout or completed.stderr, language="text")
+            output_dir = Path(__file__).resolve().parent / "output"
+            for report in (output_dir / "week8_trajectory_report.md", output_dir / "week8_trajectory_report.json"):
+                if report.exists():
+                    st.download_button(
+                        f"Download {report.name}", report.read_bytes(), file_name=report.name,
+                        key=f"download_{report.name}",
+                    )
+
     st.caption(
         "Search-only avoids generation calls. Semantic and hybrid searches create "
         "one query embedding; BM25 runs locally over stored chunk text."

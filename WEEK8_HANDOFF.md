@@ -176,3 +176,28 @@ Week 8 is complete when we can show:
 4. A clear least-privilege/output-validation defense.
 5. One measured failure reduction after one fix.
 6. Remaining risks that could still pass through.
+
+## Current implementation status
+
+Implemented files:
+
+- `rag/trajectory.py` — append-only agent trajectory logging.
+- `rag/safety.py` — instruction-like retrieved-text detection.
+- `scripts/11_week8_trajectory_eval.py` — trajectory and injection evaluation.
+- `output/agent_trajectories.jsonl` — recorded agent paths.
+- `output/week8_trajectory_report.md` and `.json` — evaluation results.
+- `app.py` — Streamlit Week 8 evaluation trigger.
+
+The current test run produced:
+
+```text
+Trajectory accuracy: 100%
+Prompt injection blocked: true
+Week 7 agent tests: PASS
+Employee-data tests: PASS
+```
+
+The injection test currently simulates malicious retrieved document content
+with a synthetic payload. The detector is pattern-based, so expanding the
+attack corpus and testing paraphrased or encoded instructions is still a
+future hardening task.
