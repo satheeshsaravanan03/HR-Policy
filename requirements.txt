@@ -13,3 +13,4 @@ pymupdf
 python-dotenv
 numpy
 langgraph
+mcp>=1.2,<2

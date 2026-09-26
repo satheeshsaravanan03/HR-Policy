@@ -23,7 +23,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 
 # A heading line never runs long; anything past this is a bolded sentence.
 MAX_HEADING_CHARS = 110

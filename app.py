@@ -12,6 +12,7 @@ Modes:
 
 from __future__ import annotations
 
+import asyncio
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +26,7 @@ from rag.chunkers import RECURSIVE, STRUCTURE  # noqa: E402
 from rag.generate import answer  # noqa: E402
 from rag.index import collection_stats, ingest  # noqa: E402
 from rag.manifest import CORPUS_DIR, DOCUMENTS, DocumentMeta, register_document  # noqa: E402
+from rag.mcp_agent import run_mcp_policy_agent  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
 from rag.retrieve import (  # noqa: E402
     HYBRID,
@@ -160,15 +162,15 @@ with st.sidebar:
 
     mode = st.radio(
         "Mode",
-        ["Ask", "Retrieve", "Rerank", "Compare", "Agent + Workflow"],
-        help="Ask: standard RAG; Retrieve: chunks only; Rerank: cross-encoder comparison; Compare: Fixed Workflow vs Standalone Agent race; Agent + Workflow: dynamic agent orchestrating workflows.",
+        ["Ask", "Retrieve", "Rerank", "Compare", "Agent + Workflow", "MCP stdio"],
+        help="Ask: standard RAG; Retrieve: chunks only; Rerank: cross-encoder comparison; Compare: Fixed Workflow vs Standalone Agent race; Agent + Workflow: dynamic agent orchestrating workflows; MCP stdio: call policy search through the local MCP server.",
     )
 
     strategy = st.selectbox(
         "Chunking strategy",
         [STRUCTURE, RECURSIVE],
         help="structure splits on policy headers; recursive is the fixed-size baseline.",
-        disabled=False,
+        disabled=mode == "MCP stdio",
     )
 
     search_method = st.selectbox(
@@ -181,6 +183,7 @@ with st.sidebar:
             HYBRID: "Hybrid (semantic + BM25, RRF)",
         }[value],
         help="Hybrid combines semantic and keyword rankings with reciprocal-rank fusion.",
+        disabled=mode == "MCP stdio",
     )
 
     rerank = st.selectbox(
@@ -191,6 +194,7 @@ with st.sidebar:
             RERANK_LOCAL: "Local cross-encoder (recommended)",
         }[value],
         help="Locally rescores the top 20 retrieved chunks. No Groq API key or quota is used.",
+        disabled=mode == "MCP stdio",
     )
 
     if mode == "Retrieve":
@@ -198,10 +202,10 @@ with st.sidebar:
     elif mode == "Rerank":
         rerank = RERANK_LOCAL
 
-    region_choice = st.selectbox("Region filter", REGIONS)
+    region_choice = st.selectbox("Region filter", REGIONS, disabled=mode == "MCP stdio")
     region = None if region_choice == "(no filter)" else region_choice
 
-    top_k = st.slider("Chunks to retrieve (top-k)", 1, 15, 5)
+    top_k = st.slider("Chunks to retrieve (top-k)", 1, 15, 5, disabled=mode == "MCP stdio")
 
     st.divider()
     with st.expander("Week 6 evaluations", expanded=False):
@@ -332,10 +336,11 @@ st.caption(
     "the box and run it straight away."
 )
 
-known, refusal, week7_presets = st.tabs([
+known, refusal, week7_presets, mcp_presets = st.tabs([
     "Preset: known-answer questions",
     "Preset: should be refused",
     "Preset: Week 7 scenarios",
+    "Preset: MCP stdio",
 ])
 
 with known:
@@ -380,6 +385,22 @@ with week7_presets:
         ("W7-08", "What is my current leave balance and carry-forward amount?", "Missing employee identifier -> agent requests clarification"),
     ]
     for cid, cquery, cdesc in w7_cases:
+        cols = st.columns([1, 11])
+        if cols[0].button(cid, key=f"btn_{cid}", width="stretch"):
+            st.session_state.query = cquery
+            st.session_state.autorun = True
+        cols[1].markdown(f"{cquery}  \n<small>{cdesc}</small>", unsafe_allow_html=True)
+
+with mcp_presets:
+    st.caption("First select MCP stdio mode in the sidebar. These single-policy examples run immediately when selected.")
+    mcp_cases = [
+        ("MCP-01", "What is the annual leave policy for ACME in the United States?", "ACME policy lookup"),
+        ("MCP-02", "How much annual leave does a confirmed Azure employee with at least one year of service receive?", "Azure entitlement by service length"),
+        ("MCP-03", "How many casual and privilege leaves are provided in the SoftSuave handbook?", "SoftSuave handbook lookup"),
+        ("MCP-04", "What is Northstar's annual leave entitlement and accrual rate?", "Northstar synthetic policy lookup"),
+        ("MCP-05", "What is the carry-forward limit in the ACME leave policy?", "ACME carry-forward rule"),
+    ]
+    for cid, cquery, cdesc in mcp_cases:
         cols = st.columns([1, 11])
         if cols[0].button(cid, key=f"btn_{cid}", width="stretch"):
             st.session_state.query = cquery
@@ -649,6 +670,46 @@ def render_agent_workflow(query: str, strategy: str, top_k: int) -> None:
         show_hits(result["hits"])
 
 
+def render_mcp_stdio(query: str) -> None:
+    st.subheader("MCP stdio Mode")
+    st.caption(
+        "The Streamlit app acts as the host. Its MCP client starts the local "
+        "server over stdio, calls `search_hr_policy`, then checks evidence and citations. "
+        "This mode currently supports single-policy questions and uses structure "
+        "chunking, hybrid search, and five results."
+    )
+
+    with st.spinner("Connecting to the MCP server and searching policies..."):
+        result = asyncio.run(run_mcp_policy_agent(query))
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Status", result["status"].upper())
+    col2.metric("Retrieved chunks", len(result.get("hits", [])))
+    col3.metric("MCP tool", result.get("discovered_tool", "search_hr_policy"))
+
+    if result["status"] == "success":
+        st.success(f"Answer passed the citation audit — {result.get('stop_reason', '')}")
+    else:
+        st.warning(f"MCP agent stopped — {result.get('stop_reason', '')}")
+    st.markdown(result["answer"])
+
+    if result.get("citations"):
+        with st.expander(f"Citations ({len(result['citations'])})"):
+            st.dataframe([
+                {
+                    "resolves": "yes" if citation.resolves else "NO",
+                    "chunk_id": citation.chunk_id,
+                    "policy_id": citation.policy_id,
+                    "section": citation.section or "—",
+                }
+                for citation in result["citations"]
+            ], hide_index=True, width="stretch")
+
+    if result.get("hits"):
+        with st.expander(f"Retrieved policy chunks ({len(result['hits'])})"):
+            show_hits(result["hits"])
+
+
 try:
     if mode == "Retrieve":
         render_search(query, strategy, region, top_k, search_method, rerank)
@@ -658,8 +719,13 @@ try:
         render_compare(query, strategy, top_k)
     elif mode == "Agent + Workflow":
         render_agent_workflow(query, strategy, top_k)
+    elif mode == "MCP stdio":
+        render_mcp_stdio(query)
     else:
         render_answer(query, strategy, region, top_k, search_method, rerank)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed
     if not provider_notice(exc):
-        raise
+        if mode == "MCP stdio":
+            st.error(f"MCP stdio request failed: {exc}")
+        else:
+            raise

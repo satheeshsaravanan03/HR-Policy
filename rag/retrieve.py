@@ -299,7 +299,7 @@ def _bm25_search(
 
 
 def _hybrid_search(
-    strategy: str, query: str, top_k: int, region: str | None, policy_id: str | None = None
+    strategy: str, query: str, top_k: int, region: str | None, policy_id: str | None = None,
 ) -> list[Hit]:
     """Fuse broad semantic and keyword candidate lists using RRF."""
     candidate_count = max(FUSION_CANDIDATES, top_k)
