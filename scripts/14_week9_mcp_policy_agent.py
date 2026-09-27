@@ -1,4 +1,4 @@
-"""Ask a single-policy question through the MCP-backed host flow.
+"""Ask a policy or employee question through the MCP-backed host flow.
 
 Run from the project root:
     python scripts/14_week9_mcp_policy_agent.py "What is the annual leave policy?"

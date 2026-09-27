@@ -143,9 +143,30 @@ It requires one explicit identifier in `EMP-001` format, looks up the existing
 synthetic record, and returns a limited set of fields. It omits name, email,
 and other identifiers.
 
+The tool accepts either an employee ID or email and returns only identity and
+current-balance fields. Policy caps are not stored in the employee record.
+
 **Entering an employee ID is not authorization.** This project has no verified
 caller identity or per-employee access-control check. The records are synthetic
 and this tool must not be connected to real employee data as-is.
+
+### `get_employee_leave_transactions`
+
+Reads mutable leave-transaction data separately from the employee identity
+record. It currently exposes compensatory balance and nullable filed/used/
+pending fields for one synthetic employee.
+
+### `get_employee_leave_summary`
+
+Resolves an employee by ID or email, retrieves the matching policy from Qdrant,
+validates the evidence, and calculates the requested leave summary. Its result
+includes policy ID and chunk/section citations.
+
+### `compare_employee_leave_transactions`
+
+Compares two requested employees by ID or email. It returns both transaction
+records and field-level differences for compensatory, filed, used, and pending
+leave. The tool is read-only and rejects unknown or duplicate employees.
 
 ## 5. Safety, evidence, and trajectory logging
 
@@ -257,7 +278,7 @@ CLI (Node 22.21.0 and Inspector 2.8.0 were used for the recorded demonstration):
 curl.exe -i -X POST http://127.0.0.1:8000/mcp -H "Content-Type: application/json" --data "{}"
 $token = Read-Host "Paste the demo token from Terminal A"
 npx --yes @modelcontextprotocol/inspector@2.8.0 --cli --transport http --server-url http://127.0.0.1:8000/mcp --header "Authorization: Bearer $token" --method tools/list
-npx --yes @modelcontextprotocol/inspector@2.8.0 --cli --transport http --server-url http://127.0.0.1:8000/mcp --header "Authorization: Bearer $token" --method tools/call --tool-name get_employee_record --tool-arg employee_id=EMP-001 --format json
+npx --yes @modelcontextprotocol/inspector@2.8.0 --cli --transport http --server-url http://127.0.0.1:8000/mcp --header "Authorization: Bearer $token" --method tools/call --tool-name get_employee_record --tool-arg identifier=EMP-001 --format json
 ```
 
 The request without a token should receive HTTP 401. Stop Terminal A with
@@ -285,8 +306,9 @@ for synthetic data and learning.
 Verified during this work:
 
 - Python MCP dependencies were installed; the observed SDK version was 1.30.0.
-- The stdio discovery script listed `explain_mcp_demo`, `search_hr_policy`,
-  and `get_employee_record` with their schemas.
+- The stdio discovery script listed the registered MCP tools with their schemas,
+  including policy search, employee lookup, leave transactions, and policy-backed
+  leave summary.
 - The MCP client called `get_employee_record` and got the synthetic `EMP-001`
   record.
 - The MCP policy CLI completed a policy question, retrieved five results,

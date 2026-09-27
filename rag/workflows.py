@@ -38,6 +38,7 @@ from .employee_data import (
     format_employee_comparison,
     identifier_from_query,
     identifiers_from_query,
+    lookup_leave_transaction,
     lookup_record,
 )
 from .retrieve import (
@@ -69,6 +70,33 @@ for _doc in DOCUMENTS:
 
 def _step(name: str, status: str, details: str) -> dict[str, str]:
     return {"name": name, "status": status, "details": details}
+
+
+def _policy_rules(record: dict[str, Any], hits: list[Hit]) -> dict[str, float | None]:
+    """Extract the small set of numeric rules needed for demo calculations.
+
+    Rules come from retrieved policy text; employee JSON no longer stores policy
+    caps or entitlements. Azure has explicit service-length rules. Other
+    policies are parsed conservatively and remain unknown when the text does
+    not state a value.
+    """
+    text = " ".join(h.content for h in hits).lower()
+    policy_id = record.get("policy_id", "")
+    experience = float(record.get("experience_years", 0))
+    if policy_id == "AZURE-HR-2026":
+        confirmed = experience >= 1
+        return {
+            "annual_leave_entitlement": 24.0 if confirmed else 18.0,
+            "carry_forward_cap": 10.0 if confirmed else 5.0,
+            "compensatory_leave_cap": 6.0 if confirmed else 4.0,
+        }
+    annual = re.search(r"receive[s]?\s+(\d+)\s+days? of annual leave", text)
+    carry = re.search(r"carry forward up to\s+\*?\*?(\d+)", text)
+    return {
+        "annual_leave_entitlement": float(annual.group(1)) if annual else None,
+        "carry_forward_cap": float(carry.group(1)) if carry else None,
+        "compensatory_leave_cap": None,
+    }
 
 
 # ----------------------------------------------------------------------
@@ -574,9 +602,9 @@ def employee_case(
     if not key:
         return {
             "workflow": "employee_case", "status": "needs_input", "steps": [
-                _step("identify_employee", "needs_input", "Provide an employee ID, customer ID, or email")
+                _step("identify_employee", "needs_input", "Provide an employee ID or email")
             ], "hits": [], "citations": [], "answer_context": "",
-            "missing_information": ["employee_id, customer_id, or email"],
+            "missing_information": ["employee_id or email"],
             "evidence_ok": False, "reason": "employee identifier is required",
             "record": None, "calculation": None, "answer": "",
         }
@@ -614,7 +642,7 @@ def employee_policy_case(query: str, *, strategy: str = "structure", top_k: int 
     key = identifier_from_query(query)
     if not key:
         return {"workflow": "employee_policy_case", "status": "needs_input", "steps": [
-            _step("identify_employee", "needs_input", "Provide an employee ID, customer ID, or email")
+            _step("identify_employee", "needs_input", "Provide an employee ID or email")
         ], "hits": [], "citations": [], "answer_context": "", "missing_information": ["employee identifier"],
         "evidence_ok": False, "reason": "employee identifier is required", "record": None, "answer": ""}
     record = lookup_record(key)
@@ -641,7 +669,11 @@ def employee_policy_case(query: str, *, strategy: str = "structure", top_k: int 
         calculation = {"requested": [], "values": {}}
         answer = f"Employee `{record['employee_id']}` is associated with policy `{record['policy_id']}` for region `{record['region']}`."
     else:
-        calculation = calculate_employee_case(record, query)
+        transaction = lookup_leave_transaction(record["employee_id"])
+        rules = _policy_rules(record, hits)
+        calculation = calculate_employee_case(
+            record, query, policy_rules=rules, transaction=transaction,
+        )
         answer = format_employee_answer(record, calculation).replace(
             "Source: editable structured employee record; policy calculations are not embedded in Qdrant.",
             f"Source: authorised employee record, validated against `{record['policy_id']}` policy evidence retrieved from Qdrant.",
@@ -654,6 +686,7 @@ def employee_policy_case(query: str, *, strategy: str = "structure", top_k: int 
             _step("lookup_employee", "success", f"Loaded {record['employee_id']}"),
             _step("retrieve_policy", "success", f"Found {len(hits)} chunks for {record['policy_id']}"),
             _step("validate_policy", "success", f"Validated policy evidence for {record['policy_id']}"),
+            _step("load_leave_transactions", "success", "Loaded mutable leave data separately from employee identity"),
             _step("calculate_values", "success", f"Calculated {', '.join(calculation['requested'])}"),
         ], "hits": hits, "citations": [], "answer_context": _context(hits) if hits else "",
         "missing_information": [], "evidence_ok": bool(hits), "reason": "" if hits else "policy evidence not indexed",
@@ -668,11 +701,12 @@ def employee_comparison(query: str, *, strategy: str = "structure", top_k: int =
     records = [record for record in records if record]
     if len(records) < 2:
         return {"workflow": "employee_comparison", "status": "needs_input", "steps": [
-            _step("identify_employees", "needs_input", "Provide two valid employee IDs, customer IDs, or emails")
+            _step("identify_employees", "needs_input", "Provide two valid employee IDs or emails")
         ], "hits": [], "citations": [], "answer_context": "", "missing_information": ["two valid employee records"],
         "evidence_ok": False, "reason": "two employee records are required", "records": records, "answer": ""}
     all_hits: list[Hit] = []
     missing_policies: list[str] = []
+    record_calculations: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for record in records:
         record_hits = search(
             strategy, query, top_k=max(1, top_k // len(records)),
@@ -681,6 +715,13 @@ def employee_comparison(query: str, *, strategy: str = "structure", top_k: int =
         all_hits.extend(record_hits)
         if not record_hits:
             missing_policies.append(record["policy_id"])
+        else:
+            rules = _policy_rules(record, record_hits)
+            transaction = lookup_leave_transaction(record["employee_id"])
+            record_calculations.append((record, calculate_employee_case(
+                record, "balance carry forward compensatory leave",
+                policy_rules=rules, transaction=transaction,
+            )))
     if missing_policies:
         return {"workflow": "employee_comparison", "status": "blocked", "steps": [
             _step("identify_employees", "success", f"Resolved {len(records)} employee records"),
@@ -690,11 +731,18 @@ def employee_comparison(query: str, *, strategy: str = "structure", top_k: int =
         "missing_information": missing_policies, "evidence_ok": False,
         "reason": "policy evidence missing", "records": records,
         "answer": f"I found the employee records, but I cannot compare them because policy evidence is missing for: {', '.join(missing_policies)}."}
-    answer = format_employee_comparison(records)
-    answer = answer.replace(
-        "These are structured demo-record values. Policy evidence must be available in Qdrant before treating them as authoritative policy rules.",
-        "These record values were validated against the corresponding policy evidence retrieved from Qdrant.",
-    )
+    lines = ["Employee policy-backed comparison:", ""]
+    for record, calculation in record_calculations:
+        values = calculation["values"]
+        lines.append(
+            f"- **{record['employee_id']}** ({record['region']}, {record['experience_years']} years): "
+            f"balance {values.get('current_leave_balance', record['current_leave_balance']):g}; "
+            f"carry-forward {values.get('carry_forward', 'not stated')}; "
+            f"compensatory leave {values.get('compensatory_leave', 'not stated')}; "
+            f"policy `{record['policy_id']}`."
+        )
+    lines.append("\nValues were calculated from the employee record, separate leave transactions, and retrieved policy evidence.")
+    answer = "\n".join(lines)
     return {"workflow": "employee_comparison", "status": "success", "steps": [
         _step("identify_employees", "success", f"Resolved {len(records)} employee records"),
         _step("lookup_policies", "success" if all_hits else "missing", f"Retrieved {len(all_hits)} policy chunks"),

@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "employee_id": "EMP-001",
+      "compensatory_leave_balance": 2,
+      "leave_filed_days": 4,
+      "leave_used_days": 3,
+      "pending_leave_days": 1
+    },
+    {
+      "employee_id": "EMP-002",
+      "compensatory_leave_balance": 3,
+      "leave_filed_days": null,
+      "leave_used_days": null,
+      "pending_leave_days": null
+    },
+    {
+      "employee_id": "EMP-003",
+      "compensatory_leave_balance": 1,
+      "leave_filed_days": null,
+      "leave_used_days": null,
+      "pending_leave_days": null
+    },
+    {
+      "employee_id": "EMP-004",
+      "compensatory_leave_balance": 4,
+      "leave_filed_days": 6,
+      "leave_used_days": 5,
+      "pending_leave_days": 1
+    },
+    {
+      "employee_id": "EMP-005",
+      "compensatory_leave_balance": 0,
+      "leave_filed_days": null,
+      "leave_used_days": null,
+      "pending_leave_days": null
+    }
+  ]
+}

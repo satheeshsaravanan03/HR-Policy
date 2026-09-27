@@ -129,8 +129,10 @@ each server implementation directly.
 Does it close the process/session on success and failure? What if the server is
 unavailable?
 
-**Done when:** run the discovery script and confirm both
-`explain_mcp_demo` and `search_hr_policy` appear with their schemas. Review
+**Done when:** run the discovery script and confirm the registered tools,
+including `explain_mcp_demo`, `search_hr_policy`, `get_employee_record`,
+`get_employee_leave_transactions`, and `get_employee_leave_summary`, appear
+with their schemas. Review
 initialization, the discovered-versus-hard-coded distinction, error handling,
 and cleanup before moving on.
 
@@ -226,7 +228,7 @@ to the local stdio server from Windows PowerShell. The environment has Node
 
 ```powershell
 npx --yes @modelcontextprotocol/inspector@2.8.0 --cli py mcp_server.py --method tools/list
-npx --yes @modelcontextprotocol/inspector@2.8.0 --cli py mcp_server.py --method tools/call --tool-name get_employee_record --tool-arg employee_id=EMP-001 --format json
+npx --yes @modelcontextprotocol/inspector@2.8.0 --cli py mcp_server.py --method tools/call --tool-name get_employee_record --tool-arg identifier=EMP-001 --format json
 ```
 
 The first command discovered all three tools. The second called
@@ -277,7 +279,7 @@ HTTP 401, then connect and call the synthetic record tool with the token:
 curl.exe -i -X POST http://127.0.0.1:8000/mcp -H "Content-Type: application/json" --data "{}"
 $token = Read-Host "Paste the demo token from Terminal A"
 npx --yes @modelcontextprotocol/inspector@2.8.0 --cli --transport http --server-url http://127.0.0.1:8000/mcp --header "Authorization: Bearer $token" --method tools/list
-npx --yes @modelcontextprotocol/inspector@2.8.0 --cli --transport http --server-url http://127.0.0.1:8000/mcp --header "Authorization: Bearer $token" --method tools/call --tool-name get_employee_record --tool-arg employee_id=EMP-001 --format json
+npx --yes @modelcontextprotocol/inspector@2.8.0 --cli --transport http --server-url http://127.0.0.1:8000/mcp --header "Authorization: Bearer $token" --method tools/call --tool-name get_employee_record --tool-arg identifier=EMP-001 --format json
 ```
 
 In this environment the request without a token returned **401**; Inspector

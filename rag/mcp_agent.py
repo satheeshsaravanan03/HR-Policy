@@ -1,4 +1,4 @@
-"""Week 9 host-side policy flow that discovers and calls MCP tools."""
+"""Week 9 host-side flow that discovers and calls MCP tools."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 
 from .agent import _select_initial_workflow
 from .generate import (
+    Citation,
     GENERATION_MODEL,
     SYSTEM_PROMPT,
     _citations,
@@ -21,6 +22,7 @@ from .generate import (
     refusal_check,
     response_text,
 )
+from .employee_data import identifier_from_query, identifiers_from_query
 from .retrieve import Hit, normalize_query
 from .safety import unsafe_hits
 from .tracing import redact
@@ -49,21 +51,11 @@ def _tool_payload(result: Any) -> dict[str, Any]:
 
 
 async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
-    """Run the existing policy route with retrieval supplied through MCP.
-
-    This first MCP agent exercise covers single-policy questions. The existing
-    rule-based workflow selector chooses the policy-search capability; the
-    MCP client verifies that the server advertises it before calling it.
-    """
+    """Route policy and employee questions through discovered MCP tools."""
     if not isinstance(query, str) or not query.strip():
         raise ValueError("Please provide a non-empty policy question.")
 
     workflow, rationale = _select_initial_workflow(query)
-    if workflow != "policy_lookup":
-        raise ValueError(
-            "This Week 9 MCP example currently handles single-policy questions only; "
-            f"the existing router selected {workflow!r}."
-        )
 
     server_path = Path(__file__).resolve().parent.parent / "mcp_server.py"
     # The MCP SDK launches stdio servers with a restricted environment by
@@ -82,7 +74,55 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             discovered = await session.list_tools()
-            tool = next((item for item in discovered.tools if item.name == "search_hr_policy"), None)
+            tools = {item.name: item for item in discovered.tools}
+
+            if workflow == "employee_policy_case":
+                tool_name = "get_employee_leave_summary"
+                tool = tools.get(tool_name)
+                identifier = identifier_from_query(query)
+                if tool is None or not identifier:
+                    raise RuntimeError(f"MCP server must advertise {tool_name} for employee questions")
+                call_result = await session.call_tool(tool_name, arguments={"identifier": identifier})
+                if getattr(call_result, "isError", False) or getattr(call_result, "is_error", False):
+                    raise RuntimeError(f"{tool_name} returned an MCP tool error")
+                payload = _tool_payload(call_result)
+                values = payload.get("values", {})
+                lines = [f"Employee `{payload.get('employee_id', identifier)}` leave summary:"]
+                labels = {
+                    "current_leave_balance": "Current leave balance",
+                    "annual_leave_entitlement": "Annual leave entitlement",
+                    "carry_forward": "Carry-forward available",
+                    "compensatory_leave": "Compensatory leave available",
+                }
+                for key, label in labels.items():
+                    if key in values:
+                        lines.append(f"- {label}: **{values[key]:g} days**")
+                lines.append(f"\nPolicy: `{payload.get('policy_id', '')}`")
+                citations = [Citation(chunk_id=c["chunk_id"], policy_id=c["policy_id"], section=c.get("section", ""), resolves=True) for c in payload.get("citations", [])]
+                return {"status": "success", "answer": "\n".join(lines), "citations": citations, "hits": [], "stop_reason": "employee_summary_tool_complete", "safety_findings": [], "route_rationale": rationale, "discovered_tool": tool_name}
+
+            if workflow == "employee_comparison":
+                tool_name = "compare_employee_leave_transactions"
+                tool = tools.get(tool_name)
+                identifiers = identifiers_from_query(query)
+                if tool is None or len(identifiers) < 2:
+                    raise RuntimeError(f"MCP server must advertise {tool_name} and the question must contain two employees")
+                call_result = await session.call_tool(tool_name, arguments={"first_identifier": identifiers[0], "second_identifier": identifiers[1]})
+                if getattr(call_result, "isError", False) or getattr(call_result, "is_error", False):
+                    raise RuntimeError(f"{tool_name} returned an MCP tool error")
+                payload = _tool_payload(call_result)
+                lines = ["Employee leave-transaction comparison:", ""]
+                for item in payload.get("employees", []):
+                    tx = item.get("transaction", {})
+                    lines.append(f"- **{item['employee_id']}**: filed {tx.get('leave_filed_days')}; used {tx.get('leave_used_days')}; pending {tx.get('pending_leave_days')}; compensatory {tx.get('compensatory_leave_balance')} days.")
+                lines.append(f"\nDifferences (second minus first): `{payload.get('differences_second_minus_first', {})}`")
+                return {"status": "success", "answer": "\n".join(lines), "citations": [], "hits": [], "stop_reason": "employee_comparison_tool_complete", "safety_findings": [], "route_rationale": rationale, "discovered_tool": tool_name}
+
+            if workflow != "policy_lookup":
+                raise ValueError(f"MCP mode does not support workflow {workflow!r} yet")
+
+            tool_name = "search_hr_policy"
+            tool = tools.get(tool_name)
             if tool is None:
                 raise RuntimeError("The MCP server did not advertise search_hr_policy")
             print("Connected; discovered search_hr_policy. Searching indexed policies...", file=sys.stderr, flush=True)

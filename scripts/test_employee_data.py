@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rag.agent import run_agent  # noqa: E402
 from rag.employee_data import identifier_from_query, load_records, lookup_record  # noqa: E402
-from rag.workflows import employee_case  # noqa: E402
+from rag.workflows import employee_case, employee_policy_case  # noqa: E402
 
 
 def main() -> None:
@@ -19,7 +19,7 @@ def main() -> None:
     assert identifier_from_query("employee001@example.com carry forward") == "employee001@example.com"
     assert lookup_record("EMP-001")["current_leave_balance"] == 7
 
-    result = employee_case("How much leave can EMP-001 carry forward?")
+    result = employee_policy_case("How much leave can EMP-001 carry forward?")
     assert result["status"] == "success"
     assert result["calculation"]["values"]["carry_forward"] == 5
 

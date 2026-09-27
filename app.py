@@ -162,8 +162,8 @@ with st.sidebar:
 
     mode = st.radio(
         "Mode",
-        ["Ask", "Retrieve", "Rerank", "Compare", "Agent + Workflow", "MCP stdio"],
-        help="Ask: standard RAG; Retrieve: chunks only; Rerank: cross-encoder comparison; Compare: Fixed Workflow vs Standalone Agent race; Agent + Workflow: dynamic agent orchestrating workflows; MCP stdio: call policy search through the local MCP server.",
+        ["Ask", "Retrieve", "Rerank", "Agent + Workflow", "MCP stdio"],
+        help="Ask: standard RAG; Retrieve: chunks only; Rerank: cross-encoder comparison; Agent + Workflow: dynamic agent orchestrating workflows; MCP stdio: call policy search through the local MCP server.",
     )
 
     strategy = st.selectbox(
@@ -674,9 +674,8 @@ def render_mcp_stdio(query: str) -> None:
     st.subheader("MCP stdio Mode")
     st.caption(
         "The Streamlit app acts as the host. Its MCP client starts the local "
-        "server over stdio, calls `search_hr_policy`, then checks evidence and citations. "
-        "This mode currently supports single-policy questions and uses structure "
-        "chunking, hybrid search, and five results."
+        "server over stdio, discovers the appropriate tool, and returns a validated result. "
+        "It supports policy lookup, employee leave summaries, and two-employee transaction comparisons."
     )
 
     with st.spinner("Connecting to the MCP server and searching policies..."):
@@ -715,8 +714,6 @@ try:
         render_search(query, strategy, region, top_k, search_method, rerank)
     elif mode == "Rerank":
         render_rerank(query, strategy, region, top_k, search_method)
-    elif mode == "Compare":
-        render_compare(query, strategy, top_k)
     elif mode == "Agent + Workflow":
         render_agent_workflow(query, strategy, top_k)
     elif mode == "MCP stdio":

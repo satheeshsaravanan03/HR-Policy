@@ -35,7 +35,9 @@ Generic MCP client
 MCP server
   ├── search_hr_policy
   ├── get_employee_record
-  └── calculate_leave_entitlement
+  ├── get_employee_leave_transactions
+  └── get_employee_leave_summary
+  └── compare_employee_leave_transactions
 ```
 
 The AI reasoning runs in the host application. The MCP server exposes tools and
@@ -123,7 +125,8 @@ Secrets belong in `.env` or a secret manager, never in source code or traces.
 
 1. Build a small local MCP server using FastMCP or the MCP Python SDK.
 2. Expose `search_hr_policy` as the first real capability.
-3. Add `get_employee_record` and `calculate_leave_entitlement`.
+3. Add `get_employee_record`, `get_employee_leave_transactions`, and
+   `get_employee_leave_summary`.
 4. Build a generic MCP client that performs initialization and tool discovery.
 5. Let the existing agent select discovered tools from their names and schemas.
 6. Pass tool results through the existing policy audit and trajectory logger.
@@ -169,4 +172,3 @@ MCP is a standard socket for AI tools. The model remains in the host. The client
 discovers tools. The server performs the approved operation. This separation
 lets another agent reuse the HR-policy capability without copying our internal
 Python implementation.
-

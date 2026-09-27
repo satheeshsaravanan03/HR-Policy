@@ -374,7 +374,7 @@ def run_agent(
                 stop_reason = "employee_comparison_complete"
                 agent_status = "success"
             else:
-                final_answer = res.get("answer") or "I need two valid employee IDs, customer IDs, or emails to compare."
+                final_answer = res.get("answer") or "I need two valid employee IDs or emails to compare."
                 stop_reason = "employee_comparison_blocked" if res["status"] == "blocked" else "employee_comparison_missing"
                 agent_status = "blocked" if res["status"] == "blocked" else "needs_input"
             break
