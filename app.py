@@ -13,6 +13,7 @@ Modes:
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import subprocess
 import sys
 from pathlib import Path
@@ -679,7 +680,13 @@ def render_mcp_stdio(query: str) -> None:
     )
 
     with st.spinner("Connecting to the MCP server and searching policies..."):
-        result = asyncio.run(run_mcp_policy_agent(query))
+        # Streamlit owns an event loop for its runtime. Keep asyncio.run and
+        # the MCP stdio subprocess on a separate worker thread so the call
+        # cannot close or interfere with Streamlit's loop.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = executor.submit(
+                lambda: asyncio.run(run_mcp_policy_agent(query))
+            ).result()
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Status", result["status"].upper())
@@ -723,6 +730,16 @@ try:
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed
     if not provider_notice(exc):
         if mode == "MCP stdio":
-            st.error(f"MCP stdio request failed: {exc}")
+            st.error("MCP stdio request failed. Underlying error:")
+
+            def _exception_leaves(error):
+                children = getattr(error, "exceptions", None)
+                if children:
+                    for child in children:
+                        yield from _exception_leaves(child)
+                else:
+                    yield f"{type(error).__name__}: {error}"
+
+            st.code("\n".join(_exception_leaves(exc)), language="text")
         else:
             raise

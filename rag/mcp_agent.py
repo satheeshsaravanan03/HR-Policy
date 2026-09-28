@@ -57,6 +57,20 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
 
     workflow, rationale = _select_initial_workflow(query)
 
+    # The general agent router treats phrases like "carry-forward limit" as
+    # an employee-record request. In MCP mode, questions naming policies or
+    # organizations (rather than an employee ID/email) are corpus questions
+    # and should go through search_hr_policy instead.
+    lowered_query = query.casefold()
+    named_policy_comparison = (
+        not identifier_from_query(query)
+        and any(name in lowered_query for name in ("acme", "softsuave"))
+        and any(term in lowered_query for term in ("policy", "carry forward", "carry-forward", "carryforward"))
+    )
+    if workflow == "employee_case" and named_policy_comparison:
+        workflow = "policy_lookup"
+        rationale = "Detected organization-specific policy question without an employee identifier"
+
     server_path = Path(__file__).resolve().parent.parent / "mcp_server.py"
     # The MCP SDK launches stdio servers with a restricted environment by
     # default. Forward only the retrieval settings/secrets this server needs.
