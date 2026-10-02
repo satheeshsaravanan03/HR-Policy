@@ -138,10 +138,19 @@ def get_employee_leave_summary(identifier: str) -> dict[str, Any]:
         strategy="structure", top_k=5,
     )
     if result.get("status") != "success":
-        raise ValueError(result.get("reason") or "Unable to produce a policy-backed leave summary")
+        record = result.get("record") or {}
+        return {
+            "status": result.get("status", "blocked"),
+            "reason": result.get("reason") or "Unable to produce a policy-backed leave summary",
+            "answer": result.get("answer", ""),
+            "missing_information": result.get("missing_information", []),
+            "employee_id": record.get("employee_id"),
+            "policy_id": record.get("policy_id"),
+        }
     calculation = result.get("calculation") or {}
     record = result.get("record") or {}
     return {
+        "status": "success",
         "employee_id": record.get("employee_id"),
         "policy_id": record.get("policy_id"),
         "values": calculation.get("values", {}),

@@ -22,7 +22,12 @@ from .generate import (
     refusal_check,
     response_text,
 )
-from .employee_data import identifier_from_query, identifiers_from_query
+from .employee_data import (
+    identifier_from_query,
+    identifiers_from_query,
+    lookup_leave_transaction,
+    lookup_record,
+)
 from .retrieve import Hit, normalize_query
 from .safety import unsafe_hits
 from .tracing import redact
@@ -50,6 +55,21 @@ def _tool_payload(result: Any) -> dict[str, Any]:
     raise ValueError("MCP tool returned no structured policy-search result")
 
 
+def _needs_input(message: str, rationale: str, stop_reason: str) -> dict[str, Any]:
+    """Build a user-facing response when preflight says a tool call is premature."""
+    return {
+        "status": "needs_input",
+        "answer": message,
+        "citations": [],
+        "hits": [],
+        "stop_reason": stop_reason,
+        "safety_findings": [],
+        "route_rationale": rationale,
+        "discovered_tool": "Not called",
+        "tool_calls": 0,
+    }
+
+
 async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
     """Route policy and employee questions through discovered MCP tools."""
     if not isinstance(query, str) or not query.strip():
@@ -57,19 +77,98 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
 
     workflow, rationale = _select_initial_workflow(query)
 
-    # The general agent router treats phrases like "carry-forward limit" as
-    # an employee-record request. In MCP mode, questions naming policies or
-    # organizations (rather than an employee ID/email) are corpus questions
-    # and should go through search_hr_policy instead.
+    # The general router treats "carry-forward" as structured employee data.
+    # Without a personal reference or employee identifier, it is a policy-rule
+    # question and should search the policy corpus instead.
     lowered_query = query.casefold()
-    named_policy_comparison = (
-        not identifier_from_query(query)
-        and any(name in lowered_query for name in ("acme", "softsuave"))
-        and any(term in lowered_query for term in ("policy", "carry forward", "carry-forward", "carryforward"))
+    personal_reference = any(
+        marker in lowered_query
+        for marker in ("my ", "for me", "myself", "i have", "i get", "i am")
     )
-    if workflow == "employee_case" and named_policy_comparison:
+    if (
+        workflow == "employee_case"
+        and not identifier_from_query(query)
+        and not personal_reference
+        and any(term in lowered_query for term in ("carry", "forward", "leave balance", "entitlement"))
+    ):
         workflow = "policy_lookup"
-        rationale = "Detected organization-specific policy question without an employee identifier"
+        rationale = "Detected a policy-rule question without an employee identifier"
+    elif workflow == "policy_comparison":
+        # The policy search tool accepts a combined query; answer generation
+        # checks the returned evidence for both policies before comparing.
+        workflow = "policy_lookup"
+        rationale = "Searching MCP policy evidence for the requested comparison"
+
+    # Preflight employee requests before starting the MCP server. This catches
+    # missing identifiers and missing local employee/transaction records
+    # without making a tool call that is already known to fail.
+    if workflow in {"employee_case", "employee_policy_case"}:
+        identifier = identifier_from_query(query)
+        if not identifier:
+            return _needs_input(
+                "Please provide an employee ID (for example EMP-001) or the email on the employee record.",
+                rationale,
+                "employee_identifier_required",
+            )
+        employee_record = lookup_record(identifier)
+        if employee_record is None:
+            return _needs_input(
+                f"I could not find an employee record for `{identifier}` in the available records, so I did not call an employee tool.",
+                rationale,
+                "employee_record_not_found",
+            )
+        if workflow == "employee_policy_case" and any(
+            term in lowered_query for term in ("compensatory", "comp off", "comp-off")
+        ):
+            transaction = lookup_leave_transaction(employee_record["employee_id"])
+            if transaction is None or transaction.get("compensatory_leave_balance") is None:
+                return _needs_input(
+                    f"I found `{employee_record['employee_id']}`, but its compensatory-leave transaction detail is not available, so I did not call the summary tool.",
+                    rationale,
+                    "employee_transaction_detail_missing",
+                )
+
+    if workflow == "employee_comparison":
+        identifiers = identifiers_from_query(query)
+        if len(identifiers) < 2:
+            return _needs_input(
+                "Please provide two employee IDs or emails before requesting an employee comparison.",
+                rationale,
+                "two_employee_identifiers_required",
+            )
+        if len(identifiers) != 2 or identifiers[0] == identifiers[1]:
+            return _needs_input(
+                "The comparison needs two different employee records. Please check the IDs or emails and try again.",
+                rationale,
+                "two_distinct_employee_identifiers_required",
+            )
+        missing_records = [key for key in identifiers if lookup_record(key) is None]
+        if missing_records:
+            missing_label = ", ".join("`" + key + "`" for key in missing_records)
+            return _needs_input(
+                f"I could not find employee record(s) for {missing_label}, so I did not call the comparison tool.",
+                rationale,
+                "employee_record_not_found",
+            )
+        records = [lookup_record(key) for key in identifiers]
+        if records[0]["employee_id"] == records[1]["employee_id"]:
+            return _needs_input(
+                "Those two identifiers refer to the same employee. Please provide two different employee records.",
+                rationale,
+                "two_distinct_employee_records_required",
+            )
+        missing_transactions = [
+            record["employee_id"]
+            for record in records
+            if record is not None and lookup_leave_transaction(record["employee_id"]) is None
+        ]
+        if missing_transactions:
+            missing_label = ", ".join("`" + key + "`" for key in missing_transactions)
+            return _needs_input(
+                f"Leave-transaction records are missing for {missing_label}, so I did not call the comparison tool.",
+                rationale,
+                "employee_transaction_record_missing",
+            )
 
     server_path = Path(__file__).resolve().parent.parent / "mcp_server.py"
     # The MCP SDK launches stdio servers with a restricted environment by
@@ -100,7 +199,41 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
                 if getattr(call_result, "isError", False) or getattr(call_result, "is_error", False):
                     raise RuntimeError(f"{tool_name} returned an MCP tool error")
                 payload = _tool_payload(call_result)
+                if payload.get("status") != "success":
+                    status = payload.get("status", "blocked")
+                    reason = payload.get("reason", "required policy evidence was not available")
+                    return {
+                        "status": "needs_input" if status == "needs_input" else "blocked",
+                        "answer": payload.get("answer") or f"I could not complete this employee request: {reason}.",
+                        "citations": [],
+                        "hits": [],
+                        "stop_reason": "employee_policy_evidence_missing",
+                        "safety_findings": [],
+                        "route_rationale": rationale,
+                        "discovered_tool": tool_name,
+                        "tool_calls": 1,
+                    }
                 values = payload.get("values", {})
+                requested_fields = []
+                if any(term in lowered_query for term in ("carry", "forward")):
+                    requested_fields.append(("carry_forward", "carry-forward limit"))
+                if any(term in lowered_query for term in ("compensatory", "comp off", "comp-off")):
+                    requested_fields.append(("compensatory_leave", "compensatory-leave detail"))
+                if any(term in lowered_query for term in ("annual entitlement", "annual leave", "entitlement")):
+                    requested_fields.append(("annual_leave_entitlement", "annual-leave entitlement"))
+                missing_fields = [label for key, label in requested_fields if key not in values]
+                if missing_fields:
+                    return {
+                        "status": "blocked",
+                        "answer": f"I found `{payload.get('employee_id', identifier)}`, but the available policy or employee data does not include the requested {', '.join(missing_fields)}. I cannot provide that value.",
+                        "citations": [],
+                        "hits": [],
+                        "stop_reason": "requested_employee_detail_missing",
+                        "safety_findings": [],
+                        "route_rationale": rationale,
+                        "discovered_tool": tool_name,
+                        "tool_calls": 1,
+                    }
                 lines = [f"Employee `{payload.get('employee_id', identifier)}` leave summary:"]
                 labels = {
                     "current_leave_balance": "Current leave balance",
@@ -115,6 +248,26 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
                 citations = [Citation(chunk_id=c["chunk_id"], policy_id=c["policy_id"], section=c.get("section", ""), resolves=True) for c in payload.get("citations", [])]
                 return {"status": "success", "answer": "\n".join(lines), "citations": citations, "hits": [], "stop_reason": "employee_summary_tool_complete", "safety_findings": [], "route_rationale": rationale, "discovered_tool": tool_name}
 
+            if workflow == "employee_case":
+                tool_name = "get_employee_record"
+                tool = tools.get(tool_name)
+                identifier = identifier_from_query(query)
+                if tool is None or not identifier:
+                    raise RuntimeError(f"MCP server must advertise {tool_name} for employee-record requests")
+                call_result = await session.call_tool(tool_name, arguments={"identifier": identifier})
+                if getattr(call_result, "isError", False) or getattr(call_result, "is_error", False):
+                    raise RuntimeError(f"{tool_name} returned an MCP tool error")
+                payload = _tool_payload(call_result)
+                lines = [f"Employee record found for `{payload.get('employee_id', identifier)}`:"]
+                for key, label in (("region", "Region"), ("policy_id", "Policy"), ("current_leave_balance", "Current leave balance")):
+                    if payload.get(key) is not None:
+                        suffix = " days" if key == "current_leave_balance" else ""
+                        value = payload[key]
+                        if key == "current_leave_balance" and isinstance(value, (int, float)):
+                            value = f"{value:g}"
+                        lines.append(f"- {label}: **{value}{suffix}**")
+                return {"status": "success", "answer": "\n".join(lines), "citations": [], "hits": [], "stop_reason": "employee_record_tool_complete", "safety_findings": [], "route_rationale": rationale, "discovered_tool": tool_name, "tool_calls": 1}
+
             if workflow == "employee_comparison":
                 tool_name = "compare_employee_leave_transactions"
                 tool = tools.get(tool_name)
@@ -128,7 +281,11 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
                 lines = ["Employee leave-transaction comparison:", ""]
                 for item in payload.get("employees", []):
                     tx = item.get("transaction", {})
-                    lines.append(f"- **{item['employee_id']}**: filed {tx.get('leave_filed_days')}; used {tx.get('leave_used_days')}; pending {tx.get('pending_leave_days')}; compensatory {tx.get('compensatory_leave_balance')} days.")
+                    values = {
+                        key: tx.get(key) if tx.get(key) is not None else "not recorded"
+                        for key in ("leave_filed_days", "leave_used_days", "pending_leave_days", "compensatory_leave_balance")
+                    }
+                    lines.append(f"- **{item['employee_id']}**: filed {values['leave_filed_days']}; used {values['leave_used_days']}; pending {values['pending_leave_days']}; compensatory {values['compensatory_leave_balance']} days.")
                 lines.append(f"\nDifferences (second minus first): `{payload.get('differences_second_minus_first', {})}`")
                 return {"status": "success", "answer": "\n".join(lines), "citations": [], "hits": [], "stop_reason": "employee_comparison_tool_complete", "safety_findings": [], "route_rationale": rationale, "discovered_tool": tool_name}
 
@@ -169,6 +326,19 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
                 )
                 raise RuntimeError(f"search_hr_policy reported an MCP tool error: {details}")
             payload = _tool_payload(call_result)
+
+            if not payload.get("results"):
+                return {
+                    "status": "refused",
+                    "answer": "I could not find matching policy evidence in the indexed documents, so I cannot verify this answer.",
+                    "citations": [],
+                    "hits": [],
+                    "stop_reason": "no_policy_evidence_found",
+                    "safety_findings": [],
+                    "route_rationale": rationale,
+                    "discovered_tool": tool.name,
+                    "tool_calls": 1,
+                }
 
     print(f"Policy search returned {len(payload.get('results', []))} result(s).", file=sys.stderr, flush=True)
     hits = [
@@ -284,6 +454,28 @@ async def run_mcp_policy_agent(query: str) -> dict[str, Any]:
     status = result.get("status", "error")
     tool_name = result.get("discovered_tool", "search_hr_policy")
     stop_reason = result.get("stop_reason", "unknown")
+    tool_calls = int(result.get("tool_calls", 1))
+    if tool_calls == 0:
+        write_trajectory(
+            query=safe_query,
+            steps=[{
+                "step": 1,
+                "workflow": "pre_tool_validation",
+                "tool_name": "Not called",
+                "validated_input": {"query": redact(normalize_query(safe_query))},
+                "result_status": status,
+                "result_summary": "Request stopped because required employee information or records were missing",
+                "stop_reason": stop_reason,
+            }],
+            status=status,
+            workflows_called=["pre_tool_validation"],
+            answer=result.get("answer", ""),
+            stop_reason=stop_reason,
+            metrics={"tool_calls_completed": 0, "result_count": 0},
+            safety_findings=[],
+        )
+        return result
+
     result_summary = {
         "result_count": len(hits),
         "sources": [
@@ -317,7 +509,7 @@ async def run_mcp_policy_agent(query: str) -> dict[str, Any]:
         workflows_called=workflows,
         answer=result.get("answer", ""),
         stop_reason=stop_reason,
-        metrics={"tool_calls": 1, "result_count": len(hits)},
+        metrics={"tool_calls": tool_calls, "result_count": len(hits)},
         safety_findings=[],
     )
     return result
