@@ -679,7 +679,7 @@ def render_mcp_stdio(query: str) -> None:
         "It supports policy lookup, employee leave summaries, and two-employee transaction comparisons."
     )
 
-    with st.spinner("Connecting to the MCP server and searching policies..."):
+    with st.spinner("Connecting to MCP and processing the request..."):
         # Streamlit owns an event loop for its runtime. Keep asyncio.run and
         # the MCP stdio subprocess on a separate worker thread so the call
         # cannot close or interfere with Streamlit's loop.
@@ -714,6 +714,12 @@ def render_mcp_stdio(query: str) -> None:
     if result.get("hits"):
         with st.expander(f"Retrieved policy chunks ({len(result['hits'])})"):
             show_hits(result["hits"])
+
+    st.subheader("Request steps")
+    st.caption("Execution path for this response, including the MCP tools used and whether the final LLM was called.")
+    for index, step in enumerate(result.get("execution_steps", []), start=1):
+        st.markdown(f"**{index}. {step['step']}**")
+        st.caption(step["detail"])
 
 
 try:

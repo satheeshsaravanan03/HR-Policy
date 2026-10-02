@@ -62,6 +62,89 @@ def lookup_leave_transaction(employee_id: str, data: dict[str, Any] | None = Non
     return None
 
 
+def search_leave_transactions(
+    field: str,
+    *,
+    operator: str = "gt",
+    threshold: float = 0,
+    second_field: str | None = None,
+    second_operator: str | None = None,
+    second_threshold: float | None = None,
+    region: str | None = None,
+    policy_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Find employee IDs matching one or two AND-combined numeric conditions."""
+    allowed_fields = {
+        "compensatory_leave_balance",
+        "current_leave_balance",
+        "leave_filed_days",
+        "leave_used_days",
+        "pending_leave_days",
+    }
+    conditions = [(field, operator, threshold)]
+    if second_field is not None:
+        if second_threshold is None or second_operator is None:
+            raise ValueError("second_field requires second_operator and second_threshold")
+        conditions.append((second_field, second_operator, second_threshold))
+    for condition_field, condition_operator, _ in conditions:
+        if condition_field not in allowed_fields:
+            raise ValueError(f"field must be one of: {', '.join(sorted(allowed_fields))}")
+        if condition_operator not in {"gt", "gte", "lt", "lte", "eq"}:
+            raise ValueError("operator must be gt, gte, lt, lte, or eq")
+    conditions = [(name, op, float(value)) for name, op, value in conditions]
+    records = load_records().get("records", [])
+    by_id = {str(item.get("employee_id", "")).upper(): item for item in records}
+    matches: list[dict[str, Any]] = []
+
+    def condition_matches(actual: float, condition_operator: str, expected: float) -> bool:
+        return {
+            "gt": actual > expected,
+            "gte": actual >= expected,
+            "lt": actual < expected,
+            "lte": actual <= expected,
+            "eq": actual == expected,
+        }[condition_operator]
+
+    transaction_rows = load_leave_transactions().get("records", [])
+    if any(name == "current_leave_balance" for name, _, _ in conditions):
+        candidates = [
+            (record, {
+                **(next((item for item in transaction_rows if str(item.get("employee_id", "")).upper() == str(record.get("employee_id", "")).upper()), {})),
+                "current_leave_balance": record.get("current_leave_balance"),
+            }) for record in records
+        ]
+    else:
+        candidates = [
+            (by_id.get(str(item.get("employee_id", "")).upper()), item)
+            for item in transaction_rows
+        ]
+
+    for record, transaction in candidates:
+        if record is None:
+            continue
+        if record is None:
+            continue
+        if region and str(record.get("region", "")).casefold() != region.casefold():
+            continue
+        if policy_id and str(record.get("policy_id", "")).casefold() != policy_id.casefold():
+            continue
+        if all(
+            transaction.get(condition_field) is not None
+            and condition_matches(float(transaction[condition_field]), condition_operator, expected)
+            for condition_field, condition_operator, expected in conditions
+        ):
+            matches.append({
+                "employee_id": record["employee_id"],
+                "email": record["email"],
+                "name": record["name"],
+                "region": record["region"],
+                "policy_id": record["policy_id"],
+                "experience_years": record["experience_years"],
+                "current_leave_balance": record["current_leave_balance"],
+            })
+    return matches
+
+
 def validate_record(record: dict[str, Any]) -> None:
     if not isinstance(record, dict):
         raise ValueError("each employee record must be an object")
@@ -87,6 +170,11 @@ def lookup_record(identifier: str, data: dict[str, Any] | None = None) -> dict[s
     for record in records:
         if any(value == str(record.get(field, "")).strip().lower() for field in KEY_FIELDS):
             return dict(record)
+        # Names are accepted for conversational queries, but the returned
+        # record remains keyed by the canonical employee_id.
+        record_name = " ".join(str(record.get("name", "")).split()).strip().lower()
+        if record_name and value == record_name:
+            return dict(record)
     return None
 
 
@@ -96,7 +184,16 @@ def identifier_from_query(query: str) -> str | None:
     if match:
         return match.group(0).replace(" ", "-").upper()
     email = re.search(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", text)
-    return email.group(0).lower() if email else None
+    if email:
+        return email.group(0).lower()
+    lowered = " ".join(text.casefold().split())
+    # Resolve a full employee name to its canonical ID. Match longest names
+    # first so a future shared prefix cannot select the wrong employee.
+    for record in sorted(load_records().get("records", []), key=lambda item: len(str(item.get("name", ""))), reverse=True):
+        name = " ".join(str(record.get("name", "")).casefold().split()).strip()
+        if name and name in lowered:
+            return str(record["employee_id"])
+    return None
 
 
 def identifiers_from_query(query: str) -> list[str]:
@@ -107,6 +204,11 @@ def identifiers_from_query(query: str) -> list[str]:
         values.append(match.group(0).replace(" ", "-").upper())
     for match in re.finditer(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", text):
         values.append(match.group(0).lower())
+    lowered = " ".join(text.casefold().split())
+    for record in sorted(load_records().get("records", []), key=lambda item: len(str(item.get("name", ""))), reverse=True):
+        name = " ".join(str(record.get("name", "")).casefold().split()).strip()
+        if name and name in lowered:
+            values.append(str(record["employee_id"]))
     return list(dict.fromkeys(values))
 
 

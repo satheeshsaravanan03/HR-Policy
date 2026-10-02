@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
-from rag.employee_data import lookup_leave_transaction, lookup_record
+from rag.employee_data import lookup_leave_transaction, lookup_record, search_leave_transactions
 from rag.workflows import employee_policy_case
 
 
@@ -197,6 +197,83 @@ def compare_employee_leave_transactions(first_identifier: str, second_identifier
         "employees": records,
         "differences_second_minus_first": differences,
     }
+
+
+@mcp.tool()
+def find_employee_ids_by_leave_transactions(
+    field: str,
+    operator: str = "gt",
+    threshold: float = 0,
+    second_field: str | None = None,
+    second_operator: str | None = None,
+    second_threshold: float | None = None,
+    region: str | None = None,
+    policy_id: str | None = None,
+) -> dict[str, Any]:
+    """Find matching employee IDs using one or two leave-data conditions.
+
+    Conditions are combined with AND. This tool returns IDs only; call
+    get_employee_details separately to fetch matching employee information.
+    """
+    if not isinstance(field, str) or not field.strip():
+        raise ValueError("field is required")
+    matches = search_leave_transactions(
+        field=field.strip(),
+        operator=operator.strip().lower() if isinstance(operator, str) else operator,
+        threshold=threshold,
+        second_field=second_field.strip() if isinstance(second_field, str) and second_field.strip() else None,
+        second_operator=second_operator.strip().lower() if isinstance(second_operator, str) else second_operator,
+        second_threshold=second_threshold,
+        region=region.strip() if isinstance(region, str) and region.strip() else None,
+        policy_id=policy_id.strip() if isinstance(policy_id, str) and policy_id.strip() else None,
+    )
+    return {
+        "status": "success",
+        "criteria": {
+            "field": field.strip(),
+            "operator": operator,
+            "threshold": float(threshold),
+            "second_field": second_field,
+            "second_operator": second_operator,
+            "second_threshold": second_threshold,
+            "region": region,
+            "policy_id": policy_id,
+        },
+        "count": len(matches),
+        "employee_ids": [item["employee_id"] for item in matches],
+    }
+
+
+@mcp.tool()
+def get_employee_details(employee_ids: list[str]) -> dict[str, Any]:
+    """Fetch employee identity, balance, and transaction details by IDs."""
+    if not isinstance(employee_ids, list) or not employee_ids:
+        raise ValueError("employee_ids must be a non-empty list")
+    if len(employee_ids) > 100:
+        raise ValueError("At most 100 employee IDs can be requested at once")
+    employees = []
+    seen: set[str] = set()
+    for raw_id in employee_ids:
+        employee_id = raw_id.strip().upper() if isinstance(raw_id, str) else ""
+        if not re.fullmatch(r"EMP-\d{3}", employee_id):
+            raise ValueError("Each employee ID must use the format EMP-001")
+        if employee_id in seen:
+            continue
+        seen.add(employee_id)
+        record = lookup_record(employee_id)
+        if record is None:
+            continue
+        employees.append({
+            "employee_id": record["employee_id"],
+            "email": record["email"],
+            "name": record["name"],
+            "region": record["region"],
+            "policy_id": record["policy_id"],
+            "experience_years": record["experience_years"],
+            "current_leave_balance": record["current_leave_balance"],
+            "transaction": lookup_leave_transaction(employee_id),
+        })
+    return {"status": "success", "count": len(employees), "employees": employees}
 
 
 if __name__ == "__main__":

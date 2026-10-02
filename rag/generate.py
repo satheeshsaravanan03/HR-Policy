@@ -146,16 +146,23 @@ def refusal_check(query: str, hits: list[Hit]) -> tuple[bool, str, str]:
     org = named_organisation(query)
     if org:
         org_hits = [h for h in hits if h.policy_id == org]
-        grounded = any(
-            any(term in h.content.lower() for term in terms) for h in org_hits
+        # Do not require the policy to repeat the user's exact wording.  For
+        # example, Soft Suave calls carry-forward "carried over" and puts the
+        # technical-team alternative under "leave encashment".  The semantic
+        # retrieval score is the appropriate evidence test here: require a
+        # sufficiently relevant chunk from the named organisation rather than
+        # a literal overlap of query and document tokens.
+        org_relevance = max(
+            (h.semantic_score if h.semantic_score is not None else h.score for h in org_hits),
+            default=0.0,
         )
-        if not grounded:
+        if org_relevance < RELEVANCE_FLOOR:
             others = sorted({h.policy_id for h in hits if h.policy_id != org})
             return (
                 True,
                 "entity_mismatch",
                 f"the question names {org}, whose policy is indexed, but no {org} "
-                f"chunk discusses {', '.join(terms[:4])}"
+                f"chunk reached the semantic relevance floor ({org_relevance:.3f} < {RELEVANCE_FLOOR:.3f})"
                 + (f"; that topic appears only in {', '.join(others)}" if others else ""),
             )
 

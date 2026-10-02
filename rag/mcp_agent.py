@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,7 +29,7 @@ from .employee_data import (
     lookup_leave_transaction,
     lookup_record,
 )
-from .retrieve import Hit, normalize_query
+from .retrieve import Hit, normalize_query, understand_query
 from .safety import unsafe_hits
 from .tracing import redact
 from .trajectory import write_trajectory
@@ -70,6 +71,180 @@ def _needs_input(message: str, rationale: str, stop_reason: str) -> dict[str, An
     }
 
 
+def _execution_steps(result: dict[str, Any]) -> list[dict[str, str]]:
+    """Create a user-visible, factual summary of the MCP request path."""
+    stop_reason = str(result.get("stop_reason", "unknown"))
+    metadata = result.get("execution_meta", {})
+    route = str(result.get("route_rationale", "Route selected"))
+    steps: list[dict[str, str]] = [{
+        "step": "Understand request",
+        "detail": route,
+    }]
+    criteria = metadata.get("criteria", {})
+    if criteria:
+        labels = {
+            "current_leave_balance": "current leave balance",
+            "leave_used_days": "leave used",
+            "leave_filed_days": "leave filed",
+            "pending_leave_days": "pending leave",
+            "compensatory_leave_balance": "compensatory leave",
+        }
+        condition_text = []
+        for prefix in ("", "second_"):
+            field = criteria.get(f"{prefix}field")
+            if field:
+                op = {
+                    "gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "=",
+                }.get(criteria.get(f"{prefix}operator"), criteria.get(f"{prefix}operator"))
+                condition_text.append(f"{labels.get(field, field)} {op} {criteria.get(f'{prefix}threshold')} days")
+        if condition_text:
+            steps[0]["detail"] += "; filters: " + " AND ".join(condition_text)
+    tool_calls = int(result.get("tool_calls", 1))
+    if tool_calls == 0:
+        steps.append({
+            "step": "Pre-check",
+            "detail": f"Stopped before MCP tool calls: {stop_reason.replace('_', ' ')}.",
+        })
+        steps.append({"step": "Final LLM", "detail": "Not called; the request needs more information or matched no local employee record."})
+        steps.append({"step": "Final response", "detail": str(result.get("status", "unknown")).replace("_", " ") + ": " + stop_reason.replace("_", " ") + "."})
+        return steps
+
+    steps.append({
+        "step": "Connect and discover tools",
+        "detail": "Opened an MCP STDIO session, initialized it, and listed the server tools.",
+    })
+    tool_sequence = result.get("tool_sequence") or str(result.get("discovered_tool", "unknown")).split(" → ")
+    for tool_name in tool_sequence:
+        if tool_name == "find_employee_ids_by_leave_transactions":
+            ids = metadata.get("employee_ids", [])
+            detail = f"Applied the requested leave conditions; found {len(ids)} matching employee ID(s)."
+        elif tool_name == "get_employee_details":
+            ids = metadata.get("employee_ids", [])
+            detail = f"Fetched employee and transaction details for {len(ids)} ID(s) returned by the prior tool."
+        elif tool_name == "get_employee_leave_summary":
+            detail = "Fetched the employee's policy-backed leave summary and citations."
+        elif tool_name == "get_employee_record":
+            detail = "Looked up the requested employee's structured record."
+        elif tool_name == "compare_employee_leave_transactions":
+            detail = "Compared the two employees' leave transaction records."
+        elif tool_name == "search_hr_policy":
+            detail = f"Searched indexed policy documents; retrieved {len(result.get('hits', []))} chunk(s)."
+        else:
+            detail = "Called the discovered MCP tool."
+        steps.append({"step": f"MCP tool: {tool_name}", "detail": detail})
+
+    if "search_hr_policy" in tool_sequence:
+        if stop_reason == "untrusted_document_instruction":
+            steps.append({"step": "Safety check", "detail": "Stopped because retrieved policy text contained unsafe instruction-like content."})
+        elif stop_reason == "refusal_gate_fired":
+            steps.append({"step": "Evidence check", "detail": "Retrieved evidence did not support the requested answer, so the refusal gate stopped generation."})
+        elif stop_reason == "no_policy_evidence_found":
+            steps.append({"step": "Evidence check", "detail": "No matching policy evidence was returned."})
+        else:
+            steps.append({"step": "Evidence and citation audit", "detail": "Checked the generated answer and its citations against retrieved policy chunks."})
+
+    llm_called = stop_reason in {"answer_generated_and_audited", "policy_audit_failed"}
+    steps.append({
+        "step": "Final LLM",
+        "detail": "Called to draft the grounded policy answer." if llm_called else "Not called; the response was produced from structured tool data or the evidence/refusal checks stopped generation.",
+    })
+    steps.append({
+        "step": "Final response",
+        "detail": f"Returned status: {result.get('status', 'unknown')}; stop reason: {stop_reason.replace('_', ' ')}.",
+    })
+    return steps
+
+
+def _transaction_search_arguments(query: str) -> dict[str, Any]:
+    """Extract one or two numeric leave conditions from a natural-language query."""
+    lowered = query.casefold()
+    for word, digit in (("zero", "0"), ("one", "1"), ("two", "2"), ("three", "3"), ("four", "4"), ("five", "5"), ("six", "6"), ("seven", "7"), ("eight", "8"), ("nine", "9"), ("ten", "10")):
+        lowered = re.sub(rf"\b{word}\b", digit, lowered)
+
+    operator_words = r"(more than|over|greater than|above|at least|less than|under|below|at most|equal to|exactly)?"
+    field_patterns = (
+        ("leave_used_days", rf"\b(?:used|use|taken|took)(?:\s+leave)?\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
+        ("leave_filed_days", rf"\b(?:filed|applied|requested)\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
+        ("pending_leave_days", rf"\bpending(?:\s+leave)?\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
+        ("compensatory_leave_balance", rf"\bcompensatory(?:\s+leave)?\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
+        ("current_leave_balance", rf"\b(?:leave\s+)?balance\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
+    )
+    operator_map = {
+        "more than": "gt", "over": "gt", "greater than": "gt", "above": "gt",
+        "at least": "gte", "less than": "lt", "under": "lt", "below": "lt",
+        "at most": "lte", "equal to": "eq", "exactly": "eq",
+    }
+    found: list[dict[str, Any]] = []
+    for field, pattern in field_patterns:
+        for match in re.finditer(pattern, lowered):
+            phrase, raw_value = match.groups()
+            found.append({
+                "field": field,
+                "operator": operator_map.get((phrase or "").strip(), "eq"),
+                "threshold": float(raw_value),
+                "position": match.start(),
+            })
+    # Sort in the order the conditions appear in the user's question.
+    found.sort(key=lambda item: item["position"])
+    if found:
+        first = found[0]
+        arguments: dict[str, Any] = {
+            "field": first["field"],
+            "operator": first["operator"],
+            "threshold": first["threshold"],
+        }
+        if len(found) > 1:
+            second = found[1]
+            arguments.update({
+                "second_field": second["field"],
+                "second_operator": second["operator"],
+                "second_threshold": second["threshold"],
+            })
+        return arguments
+
+    # Fallback for threshold-first wording such as "more than 2 days leave used".
+    field = "leave_used_days"
+    if any(term in lowered for term in ("balance", "available leave", "holding")):
+        field = "current_leave_balance"
+    elif any(term in lowered for term in ("filed", "file", "applied", "requested")):
+        field = "leave_filed_days"
+    elif any(term in lowered for term in ("pending", "awaiting")):
+        field = "pending_leave_days"
+    elif any(term in lowered for term in ("compensatory", "comp off", "comp-off")):
+        field = "compensatory_leave_balance"
+
+    match = re.search(
+        r"\b(more than|over|greater than|above|at least|less than|under|below|at most|equal to|exactly)\s+(\d+(?:\.\d+)?)",
+        lowered,
+    )
+    if not match:
+        direct = re.search(r"\b(?:used|filed|pending|balance|compensatory)\s+(\d+(?:\.\d+)?)\s*(?:days?)?", lowered)
+        if direct:
+            return {"field": field, "operator": "eq", "threshold": float(direct.group(1))}
+    if not match:
+        # Listing a transaction field without a threshold returns every
+        # employee with a recorded numeric value for that field.
+        return {"field": field, "operator": "gte", "threshold": 0}
+    phrase, raw_value = match.groups()
+    return {"field": field, "operator": operator_map[phrase], "threshold": float(raw_value)}
+
+
+def _looks_like_transaction_search(query: str) -> bool:
+    lowered = query.casefold()
+    aggregate_signal = any(term in lowered for term in (
+        "who", "which employees", "list employees", "show employees", "employees with",
+    ))
+    transaction_signal = any(term in lowered for term in (
+        "leave used", "used more", "used less", "leave filed", "filed more",
+        "filed less", "pending leave", "compensatory leave", "leave transactions",
+    ))
+    generic_transaction_signal = (
+        any(term in lowered for term in ("used", "filed", "pending", "compensatory", "balance"))
+        and any(term in lowered for term in ("leave", "days", "transaction"))
+    )
+    return aggregate_signal and (transaction_signal or generic_transaction_signal)
+
+
 async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
     """Route policy and employee questions through discovered MCP tools."""
     if not isinstance(query, str) or not query.strip():
@@ -81,6 +256,9 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
     # Without a personal reference or employee identifier, it is a policy-rule
     # question and should search the policy corpus instead.
     lowered_query = query.casefold()
+    if _looks_like_transaction_search(query):
+        workflow = "employee_transaction_search"
+        rationale = "Detected an aggregate leave-transaction query"
     personal_reference = any(
         marker in lowered_query
         for marker in ("my ", "for me", "myself", "i have", "i get", "i am")
@@ -188,6 +366,90 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
             await session.initialize()
             discovered = await session.list_tools()
             tools = {item.name: item for item in discovered.tools}
+
+            if workflow == "employee_transaction_search":
+                search_tool_name = "find_employee_ids_by_leave_transactions"
+                search_tool = tools.get(search_tool_name)
+                if search_tool is None:
+                    raise RuntimeError(f"MCP server must advertise {search_tool_name} for aggregate leave queries")
+                arguments = _transaction_search_arguments(query)
+                call_result = await session.call_tool(search_tool_name, arguments=arguments)
+                if getattr(call_result, "isError", False) or getattr(call_result, "is_error", False):
+                    raise RuntimeError(f"{search_tool_name} returned an MCP tool error")
+                search_payload = _tool_payload(call_result)
+                employee_ids = search_payload.get("employee_ids", [])
+                criteria = search_payload.get("criteria", arguments)
+                if not employee_ids:
+                    answer = "No employees were found matching all requested leave conditions."
+                    return {
+                        "status": "success",
+                        "answer": answer,
+                        "citations": [],
+                        "hits": [],
+                        "stop_reason": "no_matching_employee_ids",
+                        "safety_findings": [],
+                        "route_rationale": rationale,
+                        "discovered_tool": search_tool_name,
+                        "tool_sequence": [search_tool_name],
+                        "execution_meta": {"employee_ids": [], "criteria": criteria},
+                        "tool_calls": 1,
+                    }
+
+                details_tool_name = "get_employee_details"
+                if details_tool_name not in tools:
+                    raise RuntimeError(f"MCP server must advertise {details_tool_name} for employee detail lookup")
+                details_result = await session.call_tool(details_tool_name, arguments={"employee_ids": employee_ids})
+                if getattr(details_result, "isError", False) or getattr(details_result, "is_error", False):
+                    raise RuntimeError(f"{details_tool_name} returned an MCP tool error")
+                detail_payload = _tool_payload(details_result)
+                employees = detail_payload.get("employees", [])
+                labels = {
+                    "current_leave_balance": "current leave balance",
+                    "leave_used_days": "used leave",
+                    "leave_filed_days": "filed leave",
+                    "pending_leave_days": "pending leave",
+                    "compensatory_leave_balance": "compensatory leave balance",
+                }
+                condition_parts = []
+                for prefix in ("", "second_"):
+                    key = criteria.get(f"{prefix}field")
+                    if not key:
+                        continue
+                    phrase = {
+                        "gt": "more than", "gte": "at least", "lt": "less than",
+                        "lte": "at most", "eq": "exactly",
+                    }.get(criteria.get(f"{prefix}operator"), criteria.get(f"{prefix}operator"))
+                    condition_parts.append(f"{labels.get(key, key)} {phrase} {criteria.get(f'{prefix}threshold'):g} days")
+                lines = [f"Employees matching {' and '.join(condition_parts)} ({len(employees)}):", ""]
+                for employee in employees:
+                    transaction = employee.get("transaction") or {}
+                    lines.append(
+                        f"- **{employee['employee_id']} — {employee['name']}**; email {employee['email']}; "
+                        f"region {employee['region']}; policy `{employee['policy_id']}`; "
+                        f"experience {employee['experience_years']} years; "
+                        f"current leave balance {employee['current_leave_balance']} days."
+                    )
+                    for key, label in (
+                        ("leave_used_days", "used"), ("leave_filed_days", "filed"),
+                        ("pending_leave_days", "pending"),
+                        ("compensatory_leave_balance", "compensatory balance"),
+                    ):
+                        value = transaction.get(key)
+                        lines.append(f"  - {label}: {value if value is not None else 'not recorded'} days")
+                answer = "\n".join(lines)
+                return {
+                    "status": "success",
+                    "answer": answer,
+                    "citations": [],
+                    "hits": [],
+                    "stop_reason": "employee_transaction_search_complete",
+                    "safety_findings": [],
+                    "route_rationale": rationale,
+                    "discovered_tool": f"{search_tool_name} → {details_tool_name}",
+                    "tool_sequence": [search_tool_name, details_tool_name],
+                    "execution_meta": {"employee_ids": employee_ids, "criteria": criteria},
+                    "tool_calls": 2,
+                }
 
             if workflow == "employee_policy_case":
                 tool_name = "get_employee_leave_summary"
@@ -300,12 +562,21 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
 
             # Tool selection comes from the host's existing workflow router;
             # validate this call against the live schema before sending it.
+            normalized_query = normalize_query(query)
+            inferred_policy_id, inferred_region = understand_query(normalized_query)
             arguments = {
-                "query": normalize_query(query),
+                "query": normalized_query,
                 "strategy": "structure",
                 "method": "hybrid",
                 "top_k": 5,
             }
+            # A company named in the question is a hard evidence boundary.
+            # Send it to the MCP server so unrelated organisations cannot
+            # displace the company's own handbook in the candidate set.
+            if inferred_policy_id:
+                arguments["policy_id"] = inferred_policy_id
+            if inferred_region:
+                arguments["region"] = inferred_region
             tool_description = tool.model_dump(mode="json", by_alias=True)
             input_schema = tool_description.get("inputSchema", tool_description.get("input_schema", {}))
             properties = input_schema.get("properties", {})
@@ -430,6 +701,7 @@ async def run_mcp_policy_agent(query: str) -> dict[str, Any]:
     }
     try:
         result = await _run_mcp_policy_agent(query)
+        result["execution_steps"] = _execution_steps(result)
     except Exception as exc:
         write_trajectory(
             query=safe_query,
@@ -483,22 +755,32 @@ async def run_mcp_policy_agent(query: str) -> dict[str, Any]:
             for hit in hits
         ],
     }
-    steps = [{
-        "step": 1,
-        "workflow": "mcp_tool_call",
-        "tool_name": tool_name,
-        "validated_input": validated_input,
-        "result_status": "success" if hits else "empty",
-        "result_summary": result_summary,
-        "stop_reason": "",
-    }, {
-        "step": 2,
+    tool_sequence = result.get("tool_sequence", [tool_name])
+    steps = []
+    for index, called_tool in enumerate(tool_sequence, start=1):
+        if called_tool == "find_employee_ids_by_leave_transactions":
+            summary = "Transaction conditions applied; matching employee IDs returned"
+        elif called_tool == "get_employee_details":
+            summary = "Employee and transaction details returned for matched IDs"
+        else:
+            summary = result_summary
+        steps.append({
+            "step": index,
+            "workflow": "mcp_tool_call",
+            "tool_name": called_tool,
+            "validated_input": validated_input if index == 1 else {"employee_ids": "returned by prior tool"},
+            "result_status": "success",
+            "result_summary": summary,
+            "stop_reason": "" if index < len(tool_sequence) else stop_reason,
+        })
+    steps.append({
+        "step": len(steps) + 1,
         "workflow": "safety_and_policy_audit",
         "tool_name": tool_name,
         "result_status": status,
         "result_summary": "Retrieved text omitted; safety checks and citation audit applied",
         "stop_reason": stop_reason,
-    }]
+    })
     workflows = ["mcp_tool_call", "safety_checks"]
     if stop_reason == "answer_generated_and_audited":
         workflows.append("policy_audit")

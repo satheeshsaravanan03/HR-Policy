@@ -36,9 +36,20 @@ RERANK_OPTIONS = (RERANK_OFF, RERANK_LOCAL)
 # RRF uses rank positions rather than mixing incompatible vector and BM25
 # score scales. 60 is the conventional constant from the original RRF paper.
 RRF_K = 60
-FUSION_CANDIDATES = 20
-RERANK_CANDIDATES = 20
+FUSION_CANDIDATES = 50
+RERANK_CANDIDATES = 50
 TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9._-]*", re.I)
+
+# An organisation's public name is not necessarily present in its policy ID
+# ("Soft Suave" vs. "SS-HB-2025").  These are explicit user constraints,
+# not semantic guesses: when one appears in a question, policy evidence must
+# come from that organisation's document.
+_ORGANISATION_POLICY_IDS = {
+    "soft suave": "SS-HB-2025",
+    "softsuave": "SS-HB-2025",
+    "azure": "AZURE-HR-2026",
+    "northstar": "NORTHSTAR-REMOTE-2026",
+}
 
 # Small, deterministic cleanup for conversational/typo-heavy questions.  This
 # is deliberately not an LLM rewrite: retrieval remains reproducible and the
@@ -56,10 +67,34 @@ def normalize_query(query: str) -> str:
     return "".join(_QUERY_FIXES.get(word.lower(), word) for word in words)
 
 
+def expand_policy_query(query: str) -> str:
+    """Add policy-language variants that are safe synonyms for retrieval.
+
+    Handbooks often phrase carry-forward as "carried over" and, in the Soft
+    Suave handbook, state the alternative rule under "leave encashment".  The
+    expansion improves candidate recall but deliberately does not add a cap or
+    any other factual value, so generation remains grounded in retrieved text.
+    """
+    lowered = query.lower()
+    if "carry forward" in lowered or ("carry" in lowered and "forward" in lowered):
+        return f"{query} carried over unused leaves leave encashment"
+    return query
+
+
 def understand_query(query: str) -> tuple[str | None, str | None]:
     """Infer explicit region/policy constraints without guessing intent."""
     lowered = query.lower()
     policy_id = next((d.policy_id for d in DOCUMENTS if d.policy_id.lower() in lowered), None)
+    is_comparison = bool(re.search(r"\b(compare|contrast|versus|vs|between)\b", lowered))
+    if policy_id is None and not is_comparison:
+        policy_id = next(
+            (
+                candidate_policy_id
+                for organisation, candidate_policy_id in _ORGANISATION_POLICY_IDS.items()
+                if organisation in lowered
+            ),
+            None,
+        )
     region = next((d.region for d in DOCUMENTS if d.region.lower() in lowered), None)
     return policy_id, region
 
@@ -140,13 +175,14 @@ def search(
     inferred_policy, inferred_region = understand_query(query)
     policy_id = policy_id or inferred_policy
     region = region or inferred_region
+    retrieval_query = expand_policy_query(query)
     candidate_count = max(RERANK_CANDIDATES, top_k) if rerank == RERANK_LOCAL else top_k
     if method == SEMANTIC:
-        hits = _semantic_search(strategy, query, candidate_count, region, policy_id)
+        hits = _semantic_search(strategy, retrieval_query, candidate_count, region, policy_id)
     elif method == BM25:
-        hits = _bm25_search(strategy, query, candidate_count, region, policy_id)
+        hits = _bm25_search(strategy, retrieval_query, candidate_count, region, policy_id)
     else:
-        hits = _hybrid_search(strategy, query, candidate_count, region, policy_id)
+        hits = _hybrid_search(strategy, retrieval_query, candidate_count, region, policy_id)
     if rerank == RERANK_LOCAL:
         from .rerank import rerank as local_rerank
 
