@@ -8,7 +8,7 @@ Modes:
   3. Rerank — compare original vs local cross-encoder reranked order.
   4. Compare — independent Fixed Workflow vs Standalone Agent race.
   5. Agent + Workflow — dynamic agent orchestrating predefined workflows.
-  6. Week 10 Agent Race — compare the single-agent MCP flow with an A2A team.
+  6. Week 10 Agent Race — compare the single-agent MCP flow with a CrewAI team.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from rag.generate import answer  # noqa: E402
 from rag.index import collection_stats, ingest  # noqa: E402
 from rag.manifest import CORPUS_DIR, DOCUMENTS, DocumentMeta, register_document  # noqa: E402
 from rag.mcp_agent import run_mcp_policy_agent  # noqa: E402
-from rag.week10_a2a import run_week10_team  # noqa: E402
+from rag.week10_crewai import run_week10_crewai_team  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
 from rag.retrieve import (  # noqa: E402
     HYBRID,
@@ -168,7 +168,7 @@ with st.sidebar:
     mode = st.radio(
         "Mode",
         ["Ask", "Retrieve", "Rerank", "Agent + Workflow", "MCP stdio", "Week 10 Agent Race"],
-        help="Week 10 Agent Race runs the existing MCP single-agent baseline beside a manager-led A2A specialist team.",
+        help="Week 10 Agent Race runs the existing MCP single-agent baseline beside a CrewAI manager and specialist team.",
     )
     retrieval_controls_disabled = mode in {"MCP stdio", "Week 10 Agent Race"}
 
@@ -327,7 +327,7 @@ with st.sidebar:
             st.code(completed.stdout or completed.stderr, language="text")
 
     with st.expander("Week 10 multi-agent race", expanded=False):
-        st.caption("Race the existing single-agent MCP baseline against the manager and six A2A specialists on the same five saved cases.")
+        st.caption("Race the existing single-agent MCP baseline against a CrewAI manager and dynamically selected specialists on the same saved cases.")
         if st.button("Run Week 10 comparison set", key="run_week10_eval", type="primary"):
             script = Path(__file__).resolve().parent / "scripts" / "16_week10_agent_race.py"
             env = os.environ.copy()
@@ -789,8 +789,8 @@ def render_mcp_stdio(query: str) -> None:
 
 
 def render_week10_race(query: str, rates: dict[str, float | None]) -> None:
-    st.subheader("Week 10 — Single Agent vs A2A Specialist Team")
-    st.caption("Both systems receive the same question and MCP-backed data. The manager discovers local AgentCards, runs independent specialists concurrently, validates dependent results, and records A2A task IDs.")
+    st.subheader("Week 10 — Single Agent vs CrewAI Specialist Team")
+    st.caption("Both systems receive the same question and MCP-backed data. CrewAI runs specialist tasks sequentially; each task receives earlier task outputs as context before the manager synthesizes the response.")
 
     def error_label(exc: Exception) -> str:
         """Expose nested task-group exception types without dumping secrets."""
@@ -816,19 +816,19 @@ def render_week10_race(query: str, rates: dict[str, float | None]) -> None:
         return baseline_result, (time.perf_counter() - baseline_started) * 1000
 
     with st.spinner("Running the single-agent baseline, then the multi-agent team..."):
-        # Keep their local MCP stdio subprocesses isolated; the A2A team still
-        # runs its independent specialists concurrently internally.
+        # Keep the baseline's local MCP stdio subprocess isolated from the
+        # CrewAI team execution.
         baseline, baseline_elapsed_ms = timed_baseline()
         team_started = time.perf_counter()
         try:
-            team = run_week10_team(query, rates)
+            team = run_week10_crewai_team(query, rates)
         except Exception as exc:
             team = {
                 "status": "error",
-                "answer": f"The A2A specialist team failed ({error_label(exc)}). Check the local A2A/MCP service and retry.",
+                "answer": f"The CrewAI specialist team failed ({error_label(exc)}). Check CrewAI dependencies, Groq configuration, and MCP access.",
                 "metrics": {"elapsed_ms": (time.perf_counter() - team_started) * 1000},
                 "selected_specialists": [],
-                "steps": [{"step": "A2A team", "status": "error", "detail": error_label(exc)}],
+                "steps": [{"step": "CrewAI team", "status": "error", "detail": error_label(exc)}],
                 "specialist_results": [],
                 "evidence_review": {},
             }
@@ -843,7 +843,8 @@ def render_week10_race(query: str, rates: dict[str, float | None]) -> None:
     columns[4].metric("Baseline tokens", str(baseline_tokens))
     columns[5].metric("Team tokens", str(team_metrics.get("total_tokens", 0)))
     columns[6].metric("Baseline LLM calls", str(baseline_metrics.get("llm_calls", 0)))
-    columns[7].metric("Team LLM calls", str(team_metrics.get("llm_calls", 0)))
+    columns[7].metric("Team LLM calls (min.)", str(team_metrics.get("llm_calls", 0)))
+    st.caption("CrewAI token totals come from its usage metrics. The team LLM-call count is a lower bound (one per agent/task); tool turns and retries may add calls.")
 
     left, right = st.columns(2)
     with left:
@@ -855,7 +856,7 @@ def render_week10_race(query: str, rates: dict[str, float | None]) -> None:
             st.caption("Baseline citations")
             st.dataframe([{"chunk_id": getattr(c, "chunk_id", ""), "policy_id": getattr(c, "policy_id", ""), "section": getattr(c, "section", "")} for c in baseline["citations"]], hide_index=True)
     with right:
-        st.markdown("### Manager + specialist team")
+        st.markdown("### CrewAI manager + specialist team")
         if team.get("status") != "success":
             st.error(f"Team status: {team.get('stop_reason', team.get('status', 'error'))}")
         st.markdown(team.get("answer", "No answer returned."))
@@ -864,11 +865,11 @@ def render_week10_race(query: str, rates: dict[str, float | None]) -> None:
         else:
             st.caption("Cost not estimated: enter model token prices in the sidebar. This is not a zero-cost claim.")
 
-    st.subheader("Manager plan and A2A specialist tasks")
+    st.subheader("Manager plan and CrewAI task handoffs")
     st.write("Selected specialists:", ", ".join(team.get("selected_specialists", [])) or "none")
     st.dataframe([{"step": step.get("step"), "status": step.get("status"), "task_id": step.get("task_id", ""), "latency_ms": step.get("elapsed_ms", ""), "MCP tools": ", ".join(step.get("mcp_tools", [])), "detail": step.get("detail", "")} for step in team.get("steps", [])], hide_index=True, width="stretch")
-    with st.expander("Discovered AgentCards and specialist outputs"):
-        st.json({"team_protocol": team.get("protocol"), "agent_cards": team.get("discovered_agent_cards", []), "evidence_review": team.get("evidence_review", {}), "metrics": team_metrics})
+    with st.expander("CrewAI protocol and specialist outputs"):
+        st.json({"team_protocol": team.get("protocol"), "specialist_outputs": team.get("specialist_results", []), "evidence_review": team.get("evidence_review", {}), "metrics": team_metrics})
     st.caption("Per-question deterministic quality scoring is available from the Week 10 race-set button in the sidebar; this one-off comparison does not pretend to know a hidden ground-truth score.")
 
 

@@ -198,6 +198,23 @@ def _agent_work(role: str, payload: dict[str, Any]) -> dict[str, Any]:
 
     if role == "record_validator":
         record = payload.get("record")
+        records = payload.get("records")
+        if isinstance(records, list):
+            issues: list[str] = []
+            valid_ids = []
+            for index, item in enumerate(records):
+                if not isinstance(item, dict):
+                    issues.append(f"Employee result {index + 1} is not an object")
+                    continue
+                employee_id = str(item.get("employee_id", ""))
+                if not re.fullmatch(r"EMP-\d{3}", employee_id):
+                    issues.append(f"Employee result {index + 1} has a missing or malformed employee ID")
+                else:
+                    valid_ids.append(employee_id)
+                balance = item.get("current_leave_balance")
+                if balance is not None and (isinstance(balance, bool) or not isinstance(balance, (int, float)) or balance < 0):
+                    issues.append(f"{employee_id or 'An employee'} has an invalid current leave balance")
+            return {"tool_calls": [], "data": {"valid": not issues, "issues": issues, "employee_ids": valid_ids, "records_checked": len(records)}}
         if not isinstance(record, dict):
             return {"tool_calls": [], "data": {"valid": False, "issues": ["No employee record was returned"]}}
         issues = []

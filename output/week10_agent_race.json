@@ -1,0 +1,437 @@
+{
+  "created_at": "2026-10-03T18:23:25.602690+00:00",
+  "case_file": "data\\week10_eval_cases.json",
+  "scoring_note": "Quality is a deterministic proxy from expected facts/refusal/citation checks; inspect raw cases before claiming semantic quality.",
+  "model": "openai/gpt-oss-120b",
+  "rates_per_million_tokens": {
+    "input_per_million": null,
+    "output_per_million": null
+  },
+  "single_agent": {
+    "quality_percent": 68.0,
+    "pass_count": 3,
+    "case_count": 5,
+    "mean_latency_ms": 21976.0,
+    "total_tokens": 3063,
+    "input_tokens": 2551,
+    "output_tokens": 512,
+    "estimated_cost_total": null,
+    "cost_cases_counted": 0
+  },
+  "multi_agent": {
+    "quality_percent": 16.0,
+    "pass_count": 1,
+    "case_count": 5,
+    "mean_latency_ms": 7972.9,
+    "total_tokens": 10351,
+    "input_tokens": 7176,
+    "output_tokens": 3175,
+    "estimated_cost_total": null,
+    "cost_cases_counted": 0
+  },
+  "verdict": "The single-agent baseline is the provisional keeper: the team does not improve the deterministic quality proxy (delta -52.0 percentage points), while mean latency changes by -14003.1 ms and total tokens by +7288. Keep multi-agent delegation for cases where specialist separation or parallel work is specifically useful.",
+  "cases": [
+    {
+      "case_id": "W10-POL-01",
+      "query": "How many annual leave days does an Acme full-time employee receive per calendar year?",
+      "single_agent": {
+        "answer": "Acme full‑time employees are entitled to **18 days of annual leave per calendar year**. [CITE: ACME-LEAVE-2026#structure-0002-836f5471]",
+        "status": "success",
+        "stop_reason": "answer_generated_and_audited",
+        "metrics": {
+          "elapsed_ms": 23680.305600000793,
+          "llm_calls": 1,
+          "input_tokens": 693,
+          "output_tokens": 156,
+          "total_tokens": 849,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 100,
+          "facts_found": 1,
+          "facts_expected": 1,
+          "citation_ok": true,
+          "pass": true
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": [
+          {
+            "step": "Understand request",
+            "detail": "Standard single-policy lookup selected"
+          },
+          {
+            "step": "Connect and discover tools",
+            "detail": "Opened an MCP STDIO session, initialized it, and listed the server tools."
+          },
+          {
+            "step": "MCP tool: search_hr_policy",
+            "detail": "Searched indexed policy documents; retrieved 5 chunk(s)."
+          },
+          {
+            "step": "Evidence and citation audit",
+            "detail": "Checked the generated answer and its citations against retrieved policy chunks."
+          },
+          {
+            "step": "Final LLM",
+            "detail": "Called to draft the grounded policy answer."
+          },
+          {
+            "step": "Final response",
+            "detail": "Returned status: success; stop reason: answer generated and audited."
+          }
+        ]
+      },
+      "multi_agent": {
+        "answer": "**Policy ID:** ACME-LEAVE-2026  \n**Section:** 2  \n**Chunk ID:** ACME-LEAVE-2026#structure-0002-836f5471  \n\n```\n## 2. Annual leave allowance  \nEmployees receive 18 days of annual leave per calendar year. Employees joining after 1 July receive a prorated allowance based on completed months of service.\n```",
+        "status": "success",
+        "stop_reason": "crew_sequential_answer_after_evidence_review",
+        "metrics": {
+          "elapsed_ms": 39864.25950000012,
+          "llm_calls": 5,
+          "input_tokens": 7176,
+          "output_tokens": 3175,
+          "total_tokens": 10351,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 80,
+          "facts_found": 1,
+          "facts_expected": 1,
+          "citation_ok": false,
+          "pass": true
+        },
+        "selected_specialists": [
+          "policy_research",
+          "evidence_review"
+        ],
+        "tasks": [
+          {
+            "role": "policy_research",
+            "state": "completed",
+            "tool_calls": [
+              "search_hr_policy"
+            ]
+          }
+        ],
+        "steps": [
+          {
+            "step": "Manager planning",
+            "status": "completed",
+            "detail": "The question asks for the policy rule on annual leave days for full-time employees, requiring policy research and evidence review."
+          },
+          {
+            "step": "CrewAI specialist: policy_research",
+            "status": "completed",
+            "detail": "Output passed as context to the next task.",
+            "mcp_tools": [
+              "search_hr_policy"
+            ]
+          },
+          {
+            "step": "CrewAI evidence review",
+            "status": "completed",
+            "detail": "Prior specialist outputs audited before answer synthesis."
+          },
+          {
+            "step": "CrewAI manager response",
+            "status": "success",
+            "detail": "Manager task received previous outputs through CrewAI Task.context."
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "W10-POL-02",
+      "query": "How many unused Acme annual-leave days may be carried into the next year?",
+      "single_agent": {
+        "answer": "Employees can carry forward **up to 10 unused annual‑leave days** into the next calendar year. [CITE: ACME-LEAVE-2026#structure-0003-6a055a77]",
+        "status": "success",
+        "stop_reason": "answer_generated_and_audited",
+        "metrics": {
+          "elapsed_ms": 22711.58900000046,
+          "llm_calls": 1,
+          "input_tokens": 703,
+          "output_tokens": 146,
+          "total_tokens": 849,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 20,
+          "facts_found": 0,
+          "facts_expected": 1,
+          "citation_ok": true,
+          "pass": false
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": [
+          {
+            "step": "Understand request",
+            "detail": "Standard single-policy lookup selected"
+          },
+          {
+            "step": "Connect and discover tools",
+            "detail": "Opened an MCP STDIO session, initialized it, and listed the server tools."
+          },
+          {
+            "step": "MCP tool: search_hr_policy",
+            "detail": "Searched indexed policy documents; retrieved 5 chunk(s)."
+          },
+          {
+            "step": "Evidence and citation audit",
+            "detail": "Checked the generated answer and its citations against retrieved policy chunks."
+          },
+          {
+            "step": "Final LLM",
+            "detail": "Called to draft the grounded policy answer."
+          },
+          {
+            "step": "Final response",
+            "detail": "Returned status: success; stop reason: answer generated and audited."
+          }
+        ]
+      },
+      "multi_agent": {
+        "answer": "Run failed: RateLimitError",
+        "status": "error",
+        "stop_reason": "RateLimitError",
+        "metrics": {
+          "elapsed_ms": 0,
+          "llm_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 0,
+          "facts_found": 0,
+          "facts_expected": 1,
+          "citation_ok": false,
+          "pass": false
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": []
+      }
+    },
+    {
+      "case_id": "W10-POL-03",
+      "query": "For non-technical staff, how many unused leaves can be carried over to the next year?",
+      "single_agent": {
+        "answer": "For non‑technical staff, up to **nine** unused leaves may be carried over to the next year. [CITE: SS-HB-2025#structure-0066-0a3777d2]",
+        "status": "success",
+        "stop_reason": "answer_generated_and_audited",
+        "metrics": {
+          "elapsed_ms": 22732.33640000035,
+          "llm_calls": 1,
+          "input_tokens": 1155,
+          "output_tokens": 210,
+          "total_tokens": 1365,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 20,
+          "facts_found": 0,
+          "facts_expected": 1,
+          "citation_ok": true,
+          "pass": false
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": [
+          {
+            "step": "Understand request",
+            "detail": "Standard single-policy lookup selected"
+          },
+          {
+            "step": "Connect and discover tools",
+            "detail": "Opened an MCP STDIO session, initialized it, and listed the server tools."
+          },
+          {
+            "step": "MCP tool: search_hr_policy",
+            "detail": "Searched indexed policy documents; retrieved 5 chunk(s)."
+          },
+          {
+            "step": "Evidence and citation audit",
+            "detail": "Checked the generated answer and its citations against retrieved policy chunks."
+          },
+          {
+            "step": "Final LLM",
+            "detail": "Called to draft the grounded policy answer."
+          },
+          {
+            "step": "Final response",
+            "detail": "Returned status: success; stop reason: answer generated and audited."
+          }
+        ]
+      },
+      "multi_agent": {
+        "answer": "Run failed: RateLimitError",
+        "status": "error",
+        "stop_reason": "RateLimitError",
+        "metrics": {
+          "elapsed_ms": 0,
+          "llm_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 0,
+          "facts_found": 0,
+          "facts_expected": 1,
+          "citation_ok": false,
+          "pass": false
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": []
+      }
+    },
+    {
+      "case_id": "W10-EMP-01",
+      "query": "Show the policy-backed leave summary for EMP-002, including current balance, carry-forward and compensatory leave.",
+      "single_agent": {
+        "answer": "Employee `EMP-002` leave summary:\n- Current leave balance: **14 days**\n- Annual leave entitlement: **24 days**\n- Carry-forward available: **10 days**\n- Compensatory leave available: **3 days**\n\nPolicy: `AZURE-HR-2026`",
+        "status": "success",
+        "stop_reason": "employee_summary_tool_complete",
+        "metrics": {
+          "elapsed_ms": 15357.511399999566,
+          "llm_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 100,
+          "facts_found": 3,
+          "facts_expected": 3,
+          "citation_ok": true,
+          "pass": true
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": [
+          {
+            "step": "Understand request",
+            "detail": "Detected employee leave question requiring policy evidence"
+          },
+          {
+            "step": "Connect and discover tools",
+            "detail": "Opened an MCP STDIO session, initialized it, and listed the server tools."
+          },
+          {
+            "step": "MCP tool: get_employee_leave_summary",
+            "detail": "Fetched the employee's policy-backed leave summary and citations."
+          },
+          {
+            "step": "Final LLM",
+            "detail": "Not called; the response was produced from structured tool data or the evidence/refusal checks stopped generation."
+          },
+          {
+            "step": "Final response",
+            "detail": "Returned status: success; stop reason: employee summary tool complete."
+          }
+        ]
+      },
+      "multi_agent": {
+        "answer": "Run failed: RateLimitError",
+        "status": "error",
+        "stop_reason": "RateLimitError",
+        "metrics": {
+          "elapsed_ms": 0,
+          "llm_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 0,
+          "facts_found": 0,
+          "facts_expected": 3,
+          "citation_ok": false,
+          "pass": false
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": []
+      }
+    },
+    {
+      "case_id": "W10-REF-01",
+      "query": "What is SoftSuave's sabbatical leave entitlement?",
+      "single_agent": {
+        "answer": "I cannot answer this from the indexed policy documents.\nReason: no document contains sabbatical.",
+        "status": "refused",
+        "stop_reason": "refusal_gate_fired",
+        "metrics": {
+          "elapsed_ms": 25398.023199999443,
+          "llm_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 100,
+          "facts_found": 1,
+          "facts_expected": 1,
+          "citation_ok": null,
+          "pass": true
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": [
+          {
+            "step": "Understand request",
+            "detail": "Route selected"
+          },
+          {
+            "step": "Connect and discover tools",
+            "detail": "Opened an MCP STDIO session, initialized it, and listed the server tools."
+          },
+          {
+            "step": "MCP tool: unknown",
+            "detail": "Called the discovered MCP tool."
+          },
+          {
+            "step": "Final LLM",
+            "detail": "Not called; the response was produced from structured tool data or the evidence/refusal checks stopped generation."
+          },
+          {
+            "step": "Final response",
+            "detail": "Returned status: refused; stop reason: refusal gate fired."
+          }
+        ]
+      },
+      "multi_agent": {
+        "answer": "Run failed: RateLimitError",
+        "status": "error",
+        "stop_reason": "RateLimitError",
+        "metrics": {
+          "elapsed_ms": 0,
+          "llm_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "estimated_cost": null
+        },
+        "score": {
+          "score": 0,
+          "facts_found": 0,
+          "facts_expected": 0,
+          "citation_ok": false,
+          "pass": false
+        },
+        "selected_specialists": [],
+        "tasks": [],
+        "steps": []
+      }
+    }
+  ]
+}

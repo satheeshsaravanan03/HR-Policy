@@ -5,12 +5,13 @@ langchain-core
 langchain-text-splitters
 langchain-google-genai
 langchain-groq
-langchain-chroma
+langchain-chroma==0.2.6
 langchain-qdrant
-chromadb
+chromadb~=1.1.0
 qdrant-client
 pymupdf
 python-dotenv
 numpy
 langgraph
 mcp>=1.2,<2
+crewai[litellm]==0.203.2

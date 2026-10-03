@@ -1,4 +1,4 @@
-"""One-command Week 10 single-agent vs A2A team race."""
+"""One-command Week 10 single-agent vs CrewAI team race."""
 
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from rag.mcp_agent import run_mcp_policy_agent  # noqa: E402
-from rag.week10_a2a import run_week10_team, score_answer  # noqa: E402
+from rag.week10_a2a import score_answer  # noqa: E402
+from rag.week10_crewai import run_week10_crewai_team  # noqa: E402
 
 
 def _run_baseline(query: str) -> dict[str, Any]:
@@ -54,7 +55,7 @@ def run_race() -> dict[str, Any]:
     rows = []
     for case in cases:
         record: dict[str, Any] = {"case_id": case["case_id"], "query": case["query"]}
-        for label, runner in (("single_agent", _run_baseline), ("multi_agent", lambda q: run_week10_team(q, rates))):
+        for label, runner in (("single_agent", _run_baseline), ("multi_agent", lambda q: run_week10_crewai_team(q, rates))):
             try:
                 result = runner(case["query"])
                 record[label] = {
@@ -101,7 +102,7 @@ def run_race() -> dict[str, Any]:
     token_delta = team_metrics["total_tokens"] - single_metrics["total_tokens"]
     if quality_delta > 0:
         verdict = (
-            f"The A2A team leads the deterministic quality proxy by {quality_delta:.1f} percentage points; "
+            f"The CrewAI team leads the deterministic quality proxy by {quality_delta:.1f} percentage points; "
             f"its mean latency changes by {latency_delta:+.1f} ms and total tokens by {token_delta:+d}. "
             "Treat that as a candidate to keep only after manually checking the scored answers and citations."
         )
@@ -138,7 +139,7 @@ def _markdown(report: dict[str, Any]) -> str:
         "| System | Quality | Passed | Mean latency (ms) | Input tokens | Output tokens | Total tokens | Estimated cost |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for label, key in (("Single-agent MCP baseline", "single_agent"), ("A2A specialist team", "multi_agent")):
+    for label, key in (("Single-agent MCP baseline", "single_agent"), ("CrewAI specialist team", "multi_agent")):
         item = report[key]
         cost = f"${item['estimated_cost_total']:.6f}" if item["estimated_cost_total"] is not None else "not configured"
         lines.append(f"| {label} | {item['quality_percent']}% | {item['pass_count']}/{item['case_count']} | {item['mean_latency_ms']} | {item['input_tokens']} | {item['output_tokens']} | {item['total_tokens']} | {cost} |")
@@ -148,7 +149,7 @@ def _markdown(report: dict[str, Any]) -> str:
         single, team = case["single_agent"], case["multi_agent"]
         lines.append(f"| {case['case_id']} | {single['score']['score']}% | {team['score']['score']}% | {single['metrics'].get('elapsed_ms', 0):.0f} | {team['metrics'].get('elapsed_ms', 0):.0f} | {', '.join(team.get('selected_specialists', []))} |")
     for case in report["cases"]:
-        lines += ["", f"### {case['case_id']} — {case['query']}", "", "**Single-agent:**", "", str(case["single_agent"]["answer"]), "", "**A2A team:**", "", str(case["multi_agent"]["answer"]), "", "**A2A task IDs/status:**", "", "```json", json.dumps(case["multi_agent"].get("tasks", []), indent=2), "```"]
+        lines += ["", f"### {case['case_id']} — {case['query']}", "", "**Single-agent:**", "", str(case["single_agent"]["answer"]), "", "**CrewAI team:**", "", str(case["multi_agent"]["answer"]), "", "**CrewAI specialist tasks/status:**", "", "```json", json.dumps(case["multi_agent"].get("tasks", []), indent=2), "```"]
     return "\n".join(lines) + "\n"
 
 
