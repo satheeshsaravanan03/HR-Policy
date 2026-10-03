@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "rubric": "Deterministic expected-fact, refusal, and citation checks; not an LLM judge.",
+  "cases": [
+    {
+      "case_id": "W10-POL-01",
+      "query": "How many annual leave days does an Acme full-time employee receive per calendar year?",
+      "expected_terms": ["18 days"],
+      "require_citation": true,
+      "expected_refusal": false
+    },
+    {
+      "case_id": "W10-POL-02",
+      "query": "How many unused Acme annual-leave days may be carried into the next year?",
+      "expected_terms": ["10 unused annual-leave days"],
+      "require_citation": true,
+      "expected_refusal": false
+    },
+    {
+      "case_id": "W10-POL-03",
+      "query": "For non-technical staff, how many unused leaves can be carried over to the next year?",
+      "expected_terms": ["nine leaves"],
+      "require_citation": true,
+      "expected_refusal": false
+    },
+    {
+      "case_id": "W10-EMP-01",
+      "query": "Show the policy-backed leave summary for EMP-002, including current balance, carry-forward and compensatory leave.",
+      "expected_terms": ["14", "10", "3"],
+      "require_citation": true,
+      "expected_refusal": false
+    },
+    {
+      "case_id": "W10-REF-01",
+      "query": "What is SoftSuave's sabbatical leave entitlement?",
+      "expected_terms": [],
+      "require_citation": false,
+      "expected_refusal": true
+    }
+  ]
+}

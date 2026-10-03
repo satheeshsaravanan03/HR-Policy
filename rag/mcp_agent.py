@@ -84,6 +84,7 @@ def _execution_steps(result: dict[str, Any]) -> list[dict[str, str]]:
     if criteria:
         labels = {
             "current_leave_balance": "current leave balance",
+            "experience_years": "experience",
             "leave_used_days": "leave used",
             "leave_filed_days": "leave filed",
             "pending_leave_days": "pending leave",
@@ -96,7 +97,8 @@ def _execution_steps(result: dict[str, Any]) -> list[dict[str, str]]:
                 op = {
                     "gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "=",
                 }.get(criteria.get(f"{prefix}operator"), criteria.get(f"{prefix}operator"))
-                condition_text.append(f"{labels.get(field, field)} {op} {criteria.get(f'{prefix}threshold')} days")
+                unit = "years" if field == "experience_years" else "days"
+                condition_text.append(f"{labels.get(field, field)} {op} {criteria.get(f'{prefix}threshold')} {unit}")
         if condition_text:
             steps[0]["detail"] += "; filters: " + " AND ".join(condition_text)
     tool_calls = int(result.get("tool_calls", 1))
@@ -115,9 +117,9 @@ def _execution_steps(result: dict[str, Any]) -> list[dict[str, str]]:
     })
     tool_sequence = result.get("tool_sequence") or str(result.get("discovered_tool", "unknown")).split(" → ")
     for tool_name in tool_sequence:
-        if tool_name == "find_employee_ids_by_leave_transactions":
+        if tool_name in {"find_employee_ids_by_leave_transactions", "find_employee_ids_by_employee_criteria"}:
             ids = metadata.get("employee_ids", [])
-            detail = f"Applied the requested leave conditions; found {len(ids)} matching employee ID(s)."
+            detail = f"Applied the requested employee/leave conditions; found {len(ids)} matching employee ID(s)."
         elif tool_name == "get_employee_details":
             ids = metadata.get("employee_ids", [])
             detail = f"Fetched employee and transaction details for {len(ids)} ID(s) returned by the prior tool."
@@ -158,11 +160,16 @@ def _execution_steps(result: dict[str, Any]) -> list[dict[str, str]]:
 def _transaction_search_arguments(query: str) -> dict[str, Any]:
     """Extract one or two numeric leave conditions from a natural-language query."""
     lowered = query.casefold()
+    # Correct the common numeric-condition typo without changing unrelated
+    # occurrences of "then" elsewhere in the question.
+    lowered = re.sub(r"\bmore\s+then(?=\s+\d)", "more than", lowered)
+    lowered = re.sub(r"\bmore(?=\s+\d)", "more than", lowered)
     for word, digit in (("zero", "0"), ("one", "1"), ("two", "2"), ("three", "3"), ("four", "4"), ("five", "5"), ("six", "6"), ("seven", "7"), ("eight", "8"), ("nine", "9"), ("ten", "10")):
         lowered = re.sub(rf"\b{word}\b", digit, lowered)
 
     operator_words = r"(more than|over|greater than|above|at least|less than|under|below|at most|equal to|exactly)?"
     field_patterns = (
+        ("experience_years", rf"\b(?:years? of experience|experience(?:_years)?)\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
         ("leave_used_days", rf"\b(?:used|use|taken|took)(?:\s+leave)?\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
         ("leave_filed_days", rf"\b(?:filed|applied|requested)\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
         ("pending_leave_days", rf"\bpending(?:\s+leave)?\s+{operator_words}\s*(\d+(?:\.\d+)?)"),
@@ -202,9 +209,11 @@ def _transaction_search_arguments(query: str) -> dict[str, Any]:
             })
         return arguments
 
-    # Fallback for threshold-first wording such as "more than 2 days leave used".
+    # Also handle threshold-first phrasing such as "more than 3 leave balance".
     field = "leave_used_days"
-    if any(term in lowered for term in ("balance", "available leave", "holding")):
+    if any(term in lowered for term in ("experience", "years of service", "years' service")):
+        field = "experience_years"
+    elif any(term in lowered for term in ("balance", "available leave", "holding")):
         field = "current_leave_balance"
     elif any(term in lowered for term in ("filed", "file", "applied", "requested")):
         field = "leave_filed_days"
@@ -213,26 +222,37 @@ def _transaction_search_arguments(query: str) -> dict[str, Any]:
     elif any(term in lowered for term in ("compensatory", "comp off", "comp-off")):
         field = "compensatory_leave_balance"
 
-    match = re.search(
+    condition = re.search(
         r"\b(more than|over|greater than|above|at least|less than|under|below|at most|equal to|exactly)\s+(\d+(?:\.\d+)?)",
         lowered,
     )
-    if not match:
-        direct = re.search(r"\b(?:used|filed|pending|balance|compensatory)\s+(\d+(?:\.\d+)?)\s*(?:days?)?", lowered)
-        if direct:
-            return {"field": field, "operator": "eq", "threshold": float(direct.group(1))}
-    if not match:
-        # Listing a transaction field without a threshold returns every
-        # employee with a recorded numeric value for that field.
-        return {"field": field, "operator": "gte", "threshold": 0}
-    phrase, raw_value = match.groups()
-    return {"field": field, "operator": operator_map[phrase], "threshold": float(raw_value)}
+    if condition:
+        phrase, raw_value = condition.groups()
+        return {"field": field, "operator": operator_map[phrase], "threshold": float(raw_value)}
+
+    direct = re.search(r"\b(?:used|filed|pending|balance|compensatory)\s+(\d+(?:\.\d+)?)\s*(?:days?)?", lowered)
+    if direct:
+        return {"field": field, "operator": "eq", "threshold": float(direct.group(1))}
+
+    # A field-only listing means include records with any recorded value.
+    return {"field": field, "operator": "gte", "threshold": 0}
+
+
+def is_greeting_query(query: str) -> bool:
+    """Recognize a standalone greeting/thanks without routing it to HR retrieval."""
+    normalized = normalize_query(query).casefold().strip(" .,!?")
+    return normalized in {
+        "hi", "hello", "hey", "good morning", "good afternoon", "good evening",
+        "thanks", "thank you", "thank you so much",
+    }
 
 
 def _looks_like_transaction_search(query: str) -> bool:
     lowered = query.casefold()
+    lowered = re.sub(r"\bmore\s+then(?=\s+\d)", "more than", lowered)
+    lowered = re.sub(r"\bmore(?=\s+\d)", "more than", lowered)
     aggregate_signal = any(term in lowered for term in (
-        "who", "which employees", "list employees", "show employees", "employees with",
+        "who", "which employees", "list employees", "list out", "show employees", "employees with",
     ))
     transaction_signal = any(term in lowered for term in (
         "leave used", "used more", "used less", "leave filed", "filed more",
@@ -242,13 +262,30 @@ def _looks_like_transaction_search(query: str) -> bool:
         any(term in lowered for term in ("used", "filed", "pending", "compensatory", "balance"))
         and any(term in lowered for term in ("leave", "days", "transaction"))
     )
-    return aggregate_signal and (transaction_signal or generic_transaction_signal)
+    experience_filter_signal = (
+        any(term in lowered for term in ("experience", "years of service"))
+        and bool(re.search(r"\b(?:more than|over|greater than|above|at least|less than|under|below|at most|exactly)\s+\d", lowered))
+    )
+    return aggregate_signal and (transaction_signal or generic_transaction_signal or experience_filter_signal)
 
 
 async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
     """Route policy and employee questions through discovered MCP tools."""
     if not isinstance(query, str) or not query.strip():
         raise ValueError("Please provide a non-empty policy question.")
+
+    if is_greeting_query(query):
+        return {
+            "status": "success",
+            "answer": "Hello! I can help with questions about the available HR policies and employee leave records.",
+            "citations": [],
+            "hits": [],
+            "stop_reason": "greeting_handled_without_retrieval",
+            "safety_findings": [],
+            "route_rationale": "Recognized a standalone greeting; no HR evidence is needed.",
+            "discovered_tool": "Not called",
+            "tool_calls": 0,
+        }
 
     workflow, rationale = _select_initial_workflow(query)
 
@@ -368,17 +405,21 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
             tools = {item.name: item for item in discovered.tools}
 
             if workflow == "employee_transaction_search":
-                search_tool_name = "find_employee_ids_by_leave_transactions"
+                criteria = _transaction_search_arguments(query)
+                search_tool_name = (
+                    "find_employee_ids_by_employee_criteria"
+                    if criteria.get("field") == "experience_years"
+                    else "find_employee_ids_by_leave_transactions"
+                )
                 search_tool = tools.get(search_tool_name)
                 if search_tool is None:
-                    raise RuntimeError(f"MCP server must advertise {search_tool_name} for aggregate leave queries")
-                arguments = _transaction_search_arguments(query)
-                call_result = await session.call_tool(search_tool_name, arguments=arguments)
+                    raise RuntimeError(f"MCP server must advertise {search_tool_name} for aggregate employee queries")
+                call_result = await session.call_tool(search_tool_name, arguments=criteria)
                 if getattr(call_result, "isError", False) or getattr(call_result, "is_error", False):
                     raise RuntimeError(f"{search_tool_name} returned an MCP tool error")
                 search_payload = _tool_payload(call_result)
                 employee_ids = search_payload.get("employee_ids", [])
-                criteria = search_payload.get("criteria", arguments)
+                criteria = search_payload.get("criteria", criteria)
                 if not employee_ids:
                     answer = "No employees were found matching all requested leave conditions."
                     return {
@@ -405,6 +446,7 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
                 employees = detail_payload.get("employees", [])
                 labels = {
                     "current_leave_balance": "current leave balance",
+                    "experience_years": "experience",
                     "leave_used_days": "used leave",
                     "leave_filed_days": "filed leave",
                     "pending_leave_days": "pending leave",
@@ -419,7 +461,8 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
                         "gt": "more than", "gte": "at least", "lt": "less than",
                         "lte": "at most", "eq": "exactly",
                     }.get(criteria.get(f"{prefix}operator"), criteria.get(f"{prefix}operator"))
-                    condition_parts.append(f"{labels.get(key, key)} {phrase} {criteria.get(f'{prefix}threshold'):g} days")
+                    unit = "years" if key == "experience_years" else "days"
+                    condition_parts.append(f"{labels.get(key, key)} {phrase} {criteria.get(f'{prefix}threshold'):g} {unit}")
                 lines = [f"Employees matching {' and '.join(condition_parts)} ({len(employees)}):", ""]
                 for employee in employees:
                     transaction = employee.get("transaction") or {}
@@ -661,6 +704,13 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
             ("human", f"Context chunks:\n{_context(hits)}\n\nQuestion: {query}"),
         ]
     )
+    usage = getattr(response, "usage_metadata", None) or {}
+    usage = usage if isinstance(usage, dict) else {}
+    llm_metrics = {
+        "input_tokens": int(usage.get("input_tokens", usage.get("prompt_tokens", 0)) or 0),
+        "output_tokens": int(usage.get("output_tokens", usage.get("completion_tokens", 0)) or 0),
+        "llm_calls": 1,
+    }
     answer = response_text(response.content)
     citations = _citations(answer, hits)
     audit = policy_audit(query, answer_text=answer, citations=citations, hits=hits)
@@ -672,6 +722,7 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
             "hits": hits,
             "stop_reason": "policy_audit_failed",
             "safety_findings": [],
+            "llm_metrics": llm_metrics,
         }
 
     return {
@@ -683,6 +734,7 @@ async def _run_mcp_policy_agent(query: str) -> dict[str, Any]:
         "safety_findings": [],
         "route_rationale": rationale,
         "discovered_tool": tool.name,
+        "llm_metrics": llm_metrics,
     }
 
 
@@ -728,6 +780,20 @@ async def run_mcp_policy_agent(query: str) -> dict[str, Any]:
     stop_reason = result.get("stop_reason", "unknown")
     tool_calls = int(result.get("tool_calls", 1))
     if tool_calls == 0:
+        if stop_reason == "greeting_handled_without_retrieval":
+            result["execution_steps"] = [
+                {"step": "Classify input", "detail": "Standalone greeting; not an HR policy or employee-data request."},
+                {"step": "MCP tools", "detail": "Not called; no policy search or employee lookup was needed."},
+                {"step": "Final LLM", "detail": "Not called; returned a fixed greeting."},
+                {"step": "Final response", "detail": "Greeting handled without evidence review."},
+            ]
+            write_trajectory(
+                query=safe_query,
+                steps=[{"step": 1, "workflow": "greeting_preflight", "tool_name": "Not called", "validated_input": {"query": redact(normalize_query(safe_query))}, "result_status": "success", "result_summary": "Standalone greeting answered without retrieval", "stop_reason": stop_reason}],
+                status="success", workflows_called=["greeting_preflight"], answer=result.get("answer", ""),
+                stop_reason=stop_reason, metrics={"tool_calls_completed": 0, "result_count": 0},
+            )
+            return result
         write_trajectory(
             query=safe_query,
             steps=[{

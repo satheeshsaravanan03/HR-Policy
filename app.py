@@ -8,14 +8,17 @@ Modes:
   3. Rerank — compare original vs local cross-encoder reranked order.
   4. Compare — independent Fixed Workflow vs Standalone Agent race.
   5. Agent + Workflow — dynamic agent orchestrating predefined workflows.
+  6. Week 10 Agent Race — compare the single-agent MCP flow with an A2A team.
 """
 
 from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -28,6 +31,7 @@ from rag.generate import answer  # noqa: E402
 from rag.index import collection_stats, ingest  # noqa: E402
 from rag.manifest import CORPUS_DIR, DOCUMENTS, DocumentMeta, register_document  # noqa: E402
 from rag.mcp_agent import run_mcp_policy_agent  # noqa: E402
+from rag.week10_a2a import run_week10_team  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
 from rag.retrieve import (  # noqa: E402
     HYBRID,
@@ -163,15 +167,16 @@ with st.sidebar:
 
     mode = st.radio(
         "Mode",
-        ["Ask", "Retrieve", "Rerank", "Agent + Workflow", "MCP stdio"],
-        help="Ask: standard RAG; Retrieve: chunks only; Rerank: cross-encoder comparison; Agent + Workflow: dynamic agent orchestrating workflows; MCP stdio: call policy search through the local MCP server.",
+        ["Ask", "Retrieve", "Rerank", "Agent + Workflow", "MCP stdio", "Week 10 Agent Race"],
+        help="Week 10 Agent Race runs the existing MCP single-agent baseline beside a manager-led A2A specialist team.",
     )
+    retrieval_controls_disabled = mode in {"MCP stdio", "Week 10 Agent Race"}
 
     strategy = st.selectbox(
         "Chunking strategy",
         [STRUCTURE, RECURSIVE],
         help="structure splits on policy headers; recursive is the fixed-size baseline.",
-        disabled=mode == "MCP stdio",
+        disabled=retrieval_controls_disabled,
     )
 
     search_method = st.selectbox(
@@ -184,7 +189,7 @@ with st.sidebar:
             HYBRID: "Hybrid (semantic + BM25, RRF)",
         }[value],
         help="Hybrid combines semantic and keyword rankings with reciprocal-rank fusion.",
-        disabled=mode == "MCP stdio",
+        disabled=retrieval_controls_disabled,
     )
 
     rerank = st.selectbox(
@@ -195,7 +200,7 @@ with st.sidebar:
             RERANK_LOCAL: "Local cross-encoder (recommended)",
         }[value],
         help="Locally rescores the top 20 retrieved chunks. No Groq API key or quota is used.",
-        disabled=mode == "MCP stdio",
+        disabled=retrieval_controls_disabled,
     )
 
     if mode == "Retrieve":
@@ -203,10 +208,18 @@ with st.sidebar:
     elif mode == "Rerank":
         rerank = RERANK_LOCAL
 
-    region_choice = st.selectbox("Region filter", REGIONS, disabled=mode == "MCP stdio")
+    region_choice = st.selectbox("Region filter", REGIONS, disabled=retrieval_controls_disabled)
     region = None if region_choice == "(no filter)" else region_choice
 
-    top_k = st.slider("Chunks to retrieve (top-k)", 1, 15, 5, disabled=mode == "MCP stdio")
+    top_k = st.slider("Chunks to retrieve (top-k)", 1, 15, 5, disabled=retrieval_controls_disabled)
+
+    week10_rates = {"input_per_million": None, "output_per_million": None}
+    if mode == "Week 10 Agent Race":
+        st.caption("Estimated cost requires the model's USD price per million tokens. Leave both at 0 to omit cost instead of implying free usage.")
+        input_rate = st.number_input("Input USD / 1M tokens", min_value=0.0, value=0.0, step=0.01, key="week10_input_rate")
+        output_rate = st.number_input("Output USD / 1M tokens", min_value=0.0, value=0.0, step=0.01, key="week10_output_rate")
+        if input_rate > 0 or output_rate > 0:
+            week10_rates = {"input_per_million": input_rate, "output_per_million": output_rate}
 
     st.divider()
     with st.expander("Week 6 evaluations", expanded=False):
@@ -313,6 +326,38 @@ with st.sidebar:
                 st.error("Trajectory comparison failed.")
             st.code(completed.stdout or completed.stderr, language="text")
 
+    with st.expander("Week 10 multi-agent race", expanded=False):
+        st.caption("Race the existing single-agent MCP baseline against the manager and six A2A specialists on the same five saved cases.")
+        if st.button("Run Week 10 comparison set", key="run_week10_eval", type="primary"):
+            script = Path(__file__).resolve().parent / "scripts" / "16_week10_agent_race.py"
+            env = os.environ.copy()
+            if week10_rates["input_per_million"] is not None:
+                env["WEEK10_INPUT_COST_PER_MILLION"] = str(week10_rates["input_per_million"])
+                env["WEEK10_OUTPUT_COST_PER_MILLION"] = str(week10_rates["output_per_million"])
+            else:
+                env.pop("WEEK10_INPUT_COST_PER_MILLION", None)
+                env.pop("WEEK10_OUTPUT_COST_PER_MILLION", None)
+            try:
+                with st.spinner("Running both systems on the frozen Week 10 cases..."):
+                    completed = subprocess.run(
+                        [sys.executable, str(script)], cwd=str(Path(__file__).resolve().parent),
+                        env=env, capture_output=True, text=True, timeout=1800,
+                    )
+                if completed.returncode == 0:
+                    st.success("Week 10 race completed. Review the per-case evidence before deciding which system wins.")
+                else:
+                    st.error("Week 10 race stopped with an error; completed/failed cases remain visible in command output where available.")
+                st.code(completed.stdout or completed.stderr, language="text")
+            except subprocess.TimeoutExpired:
+                st.error("Week 10 race exceeded the 30-minute safety limit.")
+            output_dir = Path(__file__).resolve().parent / "output"
+            for report in (output_dir / "week10_agent_race.md", output_dir / "week10_agent_race.json", output_dir / "week10_a2a_tasks.jsonl"):
+                if report.exists():
+                    st.download_button(
+                        f"Download {report.name}", report.read_bytes(), file_name=report.name,
+                        key=f"download_{report.name}",
+                    )
+
     st.caption(
         "Search-only avoids generation calls. Semantic and hybrid searches create "
         "one query embedding; BM25 runs locally over stored chunk text."
@@ -336,6 +381,27 @@ st.caption(
     "Type any question below and press **Enter**, or use a preset button to fill "
     "the box and run it straight away."
 )
+
+quick_questions = {
+    "ACME — annual leave entitlement": "How many annual leave days does an ACME full-time employee receive per calendar year?",
+    "ACME — carry-forward limit": "What is the carry-forward limit in the ACME leave policy?",
+    "ACME — United States applicability": "What is the annual leave policy for ACME in the United States?",
+    "SoftSuave — non-technical carry-forward": "For non-technical staff, how many unused leaves can be carried over to the next year?",
+    "Employee — EMP-002 leave summary": "Show the policy-backed leave summary for EMP-002, including current balance, carry-forward and compensatory leave.",
+    "Refusal check — sabbatical": "What is SoftSuave's sabbatical leave entitlement?",
+}
+quick_choice = st.selectbox(
+    "Quick-pick a question",
+    ["Choose a sample question…", *quick_questions],
+    key="quick_question_choice",
+)
+if st.button(
+    "Select and run question",
+    key="run_quick_question",
+    disabled=quick_choice == "Choose a sample question…",
+):
+    st.session_state.query = quick_questions[quick_choice]
+    st.session_state.autorun = True
 
 known, refusal, week7_presets, mcp_presets = st.tabs([
     "Preset: known-answer questions",
@@ -722,6 +788,90 @@ def render_mcp_stdio(query: str) -> None:
         st.caption(step["detail"])
 
 
+def render_week10_race(query: str, rates: dict[str, float | None]) -> None:
+    st.subheader("Week 10 — Single Agent vs A2A Specialist Team")
+    st.caption("Both systems receive the same question and MCP-backed data. The manager discovers local AgentCards, runs independent specialists concurrently, validates dependent results, and records A2A task IDs.")
+
+    def error_label(exc: Exception) -> str:
+        """Expose nested task-group exception types without dumping secrets."""
+        names = [type(exc).__name__]
+        nested = exc
+        while isinstance(nested, BaseExceptionGroup) and nested.exceptions:
+            nested = nested.exceptions[0]
+            names.append(type(nested).__name__)
+        return " → ".join(names)
+
+    def timed_baseline():
+        baseline_started = time.perf_counter()
+        try:
+            baseline_result = asyncio.run(run_mcp_policy_agent(query))
+        except Exception as exc:
+            baseline_result = {
+                "status": "error",
+                "answer": f"The single-agent MCP baseline failed ({error_label(exc)}). Check its MCP/stdio connection and retry.",
+                "llm_metrics": {},
+                "citations": [],
+                "error": error_label(exc),
+            }
+        return baseline_result, (time.perf_counter() - baseline_started) * 1000
+
+    with st.spinner("Running the single-agent baseline, then the multi-agent team..."):
+        # Keep their local MCP stdio subprocesses isolated; the A2A team still
+        # runs its independent specialists concurrently internally.
+        baseline, baseline_elapsed_ms = timed_baseline()
+        team_started = time.perf_counter()
+        try:
+            team = run_week10_team(query, rates)
+        except Exception as exc:
+            team = {
+                "status": "error",
+                "answer": f"The A2A specialist team failed ({error_label(exc)}). Check the local A2A/MCP service and retry.",
+                "metrics": {"elapsed_ms": (time.perf_counter() - team_started) * 1000},
+                "selected_specialists": [],
+                "steps": [{"step": "A2A team", "status": "error", "detail": error_label(exc)}],
+                "specialist_results": [],
+                "evidence_review": {},
+            }
+    baseline_metrics = baseline.get("llm_metrics", {})
+    baseline_tokens = int(baseline_metrics.get("input_tokens", 0)) + int(baseline_metrics.get("output_tokens", 0))
+    team_metrics = team.get("metrics", {})
+    columns = st.columns(8)
+    columns[0].metric("Baseline status", str(baseline.get("status", "unknown")).upper())
+    columns[1].metric("Team status", str(team.get("status", "unknown")).upper())
+    columns[2].metric("Baseline latency", f"{baseline_elapsed_ms:.0f} ms")
+    columns[3].metric("Team latency", f"{team_metrics.get('elapsed_ms', 0):.0f} ms")
+    columns[4].metric("Baseline tokens", str(baseline_tokens))
+    columns[5].metric("Team tokens", str(team_metrics.get("total_tokens", 0)))
+    columns[6].metric("Baseline LLM calls", str(baseline_metrics.get("llm_calls", 0)))
+    columns[7].metric("Team LLM calls", str(team_metrics.get("llm_calls", 0)))
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("### Existing single-agent MCP baseline")
+        if baseline.get("status") != "success":
+            st.error(f"Baseline status: {baseline.get('error', baseline.get('status', 'error'))}")
+        st.markdown(baseline.get("answer", "No answer returned."))
+        if baseline.get("citations"):
+            st.caption("Baseline citations")
+            st.dataframe([{"chunk_id": getattr(c, "chunk_id", ""), "policy_id": getattr(c, "policy_id", ""), "section": getattr(c, "section", "")} for c in baseline["citations"]], hide_index=True)
+    with right:
+        st.markdown("### Manager + specialist team")
+        if team.get("status") != "success":
+            st.error(f"Team status: {team.get('stop_reason', team.get('status', 'error'))}")
+        st.markdown(team.get("answer", "No answer returned."))
+        if team_metrics.get("estimated_cost") is not None:
+            st.caption(f"Estimated team cost: ${team_metrics['estimated_cost']:.8f} (using the rates entered in the sidebar).")
+        else:
+            st.caption("Cost not estimated: enter model token prices in the sidebar. This is not a zero-cost claim.")
+
+    st.subheader("Manager plan and A2A specialist tasks")
+    st.write("Selected specialists:", ", ".join(team.get("selected_specialists", [])) or "none")
+    st.dataframe([{"step": step.get("step"), "status": step.get("status"), "task_id": step.get("task_id", ""), "latency_ms": step.get("elapsed_ms", ""), "MCP tools": ", ".join(step.get("mcp_tools", [])), "detail": step.get("detail", "")} for step in team.get("steps", [])], hide_index=True, width="stretch")
+    with st.expander("Discovered AgentCards and specialist outputs"):
+        st.json({"team_protocol": team.get("protocol"), "agent_cards": team.get("discovered_agent_cards", []), "evidence_review": team.get("evidence_review", {}), "metrics": team_metrics})
+    st.caption("Per-question deterministic quality scoring is available from the Week 10 race-set button in the sidebar; this one-off comparison does not pretend to know a hidden ground-truth score.")
+
+
 try:
     if mode == "Retrieve":
         render_search(query, strategy, region, top_k, search_method, rerank)
@@ -731,6 +881,8 @@ try:
         render_agent_workflow(query, strategy, top_k)
     elif mode == "MCP stdio":
         render_mcp_stdio(query)
+    elif mode == "Week 10 Agent Race":
+        render_week10_race(query, week10_rates)
     else:
         render_answer(query, strategy, region, top_k, search_method, rerank)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed

@@ -245,6 +245,34 @@ def find_employee_ids_by_leave_transactions(
 
 
 @mcp.tool()
+def find_employee_ids_by_employee_criteria(
+    field: str,
+    operator: str = "gt",
+    threshold: float = 0,
+    second_field: str | None = None,
+    second_operator: str | None = None,
+    second_threshold: float | None = None,
+    region: str | None = None,
+    policy_id: str | None = None,
+) -> dict[str, Any]:
+    """Find employee IDs by numeric employee-record criteria such as experience or balance.
+
+    Conditions are combined with AND. This tool returns IDs only; call
+    get_employee_details separately for the matching employee records.
+    """
+    return find_employee_ids_by_leave_transactions(
+        field=field,
+        operator=operator,
+        threshold=threshold,
+        second_field=second_field,
+        second_operator=second_operator,
+        second_threshold=second_threshold,
+        region=region,
+        policy_id=policy_id,
+    )
+
+
+@mcp.tool()
 def get_employee_details(employee_ids: list[str]) -> dict[str, Any]:
     """Fetch employee identity, balance, and transaction details by IDs."""
     if not isinstance(employee_ids, list) or not employee_ids:

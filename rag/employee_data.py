@@ -77,6 +77,7 @@ def search_leave_transactions(
     allowed_fields = {
         "compensatory_leave_balance",
         "current_leave_balance",
+        "experience_years",
         "leave_filed_days",
         "leave_used_days",
         "pending_leave_days",
@@ -93,7 +94,6 @@ def search_leave_transactions(
             raise ValueError("operator must be gt, gte, lt, lte, or eq")
     conditions = [(name, op, float(value)) for name, op, value in conditions]
     records = load_records().get("records", [])
-    by_id = {str(item.get("employee_id", "")).upper(): item for item in records}
     matches: list[dict[str, Any]] = []
 
     def condition_matches(actual: float, condition_operator: str, expected: float) -> bool:
@@ -106,22 +106,17 @@ def search_leave_transactions(
         }[condition_operator]
 
     transaction_rows = load_leave_transactions().get("records", [])
-    if any(name == "current_leave_balance" for name, _, _ in conditions):
-        candidates = [
-            (record, {
-                **(next((item for item in transaction_rows if str(item.get("employee_id", "")).upper() == str(record.get("employee_id", "")).upper()), {})),
-                "current_leave_balance": record.get("current_leave_balance"),
-            }) for record in records
-        ]
-    else:
-        candidates = [
-            (by_id.get(str(item.get("employee_id", "")).upper()), item)
-            for item in transaction_rows
-        ]
+    transactions_by_id = {str(item.get("employee_id", "")).upper(): item for item in transaction_rows}
+    candidates = [
+        (record, {
+            **transactions_by_id.get(str(record.get("employee_id", "")).upper(), {}),
+            "current_leave_balance": record.get("current_leave_balance"),
+            "experience_years": record.get("experience_years"),
+        })
+        for record in records
+    ]
 
     for record, transaction in candidates:
-        if record is None:
-            continue
         if record is None:
             continue
         if region and str(record.get("region", "")).casefold() != region.casefold():

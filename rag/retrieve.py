@@ -49,6 +49,7 @@ _ORGANISATION_POLICY_IDS = {
     "softsuave": "SS-HB-2025",
     "azure": "AZURE-HR-2026",
     "northstar": "NORTHSTAR-REMOTE-2026",
+    "acme": "ACME-LEAVE-2026",
 }
 
 # Small, deterministic cleanup for conversational/typo-heavy questions.  This
