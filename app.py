@@ -8,7 +8,7 @@ Modes:
   3. Rerank — compare original vs local cross-encoder reranked order.
   4. Compare — independent Fixed Workflow vs Standalone Agent race.
   5. Agent + Workflow — dynamic agent orchestrating predefined workflows.
-  6. Week 10 Agent Race — compare the single-agent MCP flow with a CrewAI team.
+  6. Week 10 Single Agent / Crew Team — run either path independently.
 """
 
 from __future__ import annotations
@@ -31,8 +31,9 @@ from rag.generate import answer  # noqa: E402
 from rag.index import collection_stats, ingest  # noqa: E402
 from rag.manifest import CORPUS_DIR, DOCUMENTS, DocumentMeta, register_document  # noqa: E402
 from rag.mcp_agent import run_mcp_policy_agent  # noqa: E402
-from rag.week10_crewai import run_week10_crewai_team  # noqa: E402
+from rag.week10_crewai import run_week10_crewai_team, safe_error_detail  # noqa: E402
 from rag.questions import QUESTIONS, REFUSALS  # noqa: E402
+from rag.week10_a2a import _append_task_trace as append_week10_task_trace  # noqa: E402
 from rag.retrieve import (  # noqa: E402
     HYBRID,
     RERANK_LOCAL,
@@ -165,12 +166,13 @@ with st.sidebar:
                 st.success(f"Indexed {safe_name} under both chunking strategies.")
                 st.rerun()
 
+    week10_modes = {"Week 10 Single Agent", "Week 10 Crew Team"}
     mode = st.radio(
         "Mode",
-        ["Ask", "Retrieve", "Rerank", "Agent + Workflow", "MCP stdio", "Week 10 Agent Race"],
-        help="Week 10 Agent Race runs the existing MCP single-agent baseline beside a CrewAI manager and specialist team.",
+        ["Ask", "Retrieve", "Rerank", "Agent + Workflow", "MCP stdio", "Week 10 Single Agent", "Week 10 Crew Team"],
+        help="Choose one Week 10 path to run. Single Agent and Crew Team execute independently; the saved comparison set still races both.",
     )
-    retrieval_controls_disabled = mode in {"MCP stdio", "Week 10 Agent Race"}
+    retrieval_controls_disabled = mode in ({"MCP stdio"} | week10_modes)
 
     strategy = st.selectbox(
         "Chunking strategy",
@@ -214,7 +216,7 @@ with st.sidebar:
     top_k = st.slider("Chunks to retrieve (top-k)", 1, 15, 5, disabled=retrieval_controls_disabled)
 
     week10_rates = {"input_per_million": None, "output_per_million": None}
-    if mode == "Week 10 Agent Race":
+    if mode in week10_modes:
         st.caption("Estimated cost requires the model's USD price per million tokens. Leave both at 0 to omit cost instead of implying free usage.")
         input_rate = st.number_input("Input USD / 1M tokens", min_value=0.0, value=0.0, step=0.01, key="week10_input_rate")
         output_rate = st.number_input("Output USD / 1M tokens", min_value=0.0, value=0.0, step=0.01, key="week10_output_rate")
@@ -737,8 +739,8 @@ def render_agent_workflow(query: str, strategy: str, top_k: int) -> None:
         show_hits(result["hits"])
 
 
-def render_mcp_stdio(query: str) -> None:
-    st.subheader("MCP stdio Mode")
+def render_mcp_stdio(query: str, heading: str = "MCP stdio Mode") -> None:
+    st.subheader(heading)
     st.caption(
         "The Streamlit app acts as the host. Its MCP client starts the local "
         "server over stdio, discovers the appropriate tool, and returns a validated result. "
@@ -873,6 +875,55 @@ def render_week10_race(query: str, rates: dict[str, float | None]) -> None:
     st.caption("Per-question deterministic quality scoring is available from the Week 10 race-set button in the sidebar; this one-off comparison does not pretend to know a hidden ground-truth score.")
 
 
+def render_week10_crewai(query: str, rates: dict[str, float | None]) -> None:
+    st.subheader("Week 10 Crew Team")
+    st.caption("Runs only the CrewAI manager and selected specialist team. The single-agent MCP baseline is not called in this mode.")
+    started = time.perf_counter()
+    try:
+        with st.spinner("Running the CrewAI manager and specialist team..."):
+            team = run_week10_crewai_team(query, rates)
+    except Exception as exc:
+        error_detail = safe_error_detail(exc)
+        team = {
+            "status": "error",
+            "answer": "The CrewAI team failed before returning a result. See the sanitized error detail below.",
+            "stop_reason": "crewai_execution_error",
+            "error": error_detail,
+            "metrics": {"elapsed_ms": (time.perf_counter() - started) * 1000, "llm_calls": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "estimated_cost": None},
+            "selected_specialists": [],
+            "steps": [{"step": "CrewAI team", "status": "error", "detail": error_detail}],
+            "specialist_results": [],
+            "evidence_review": {},
+        }
+        append_week10_task_trace(query, team)
+
+    metrics = team.get("metrics", {})
+    columns = st.columns(4)
+    columns[0].metric("Team status", str(team.get("status", "unknown")).upper())
+    columns[1].metric("Latency", f"{metrics.get('elapsed_ms', 0):.0f} ms")
+    columns[2].metric("Tokens", str(metrics.get("total_tokens", 0)))
+    columns[3].metric("LLM calls (minimum)", str(metrics.get("llm_calls", 0)))
+    if team.get("status") != "success":
+        st.error(f"Team status: {team.get('stop_reason', team.get('status', 'error'))}")
+        if team.get("error"):
+            st.code(team["error"], language="text")
+    st.markdown(team.get("answer", "No answer returned."))
+    if metrics.get("estimated_cost") is not None:
+        st.caption(f"Estimated team cost: ${metrics['estimated_cost']:.8f} (using sidebar token rates).")
+    else:
+        st.caption("Cost not estimated: enter model token prices in the sidebar. This is not a zero-cost claim.")
+
+    st.subheader("Manager plan and CrewAI task handoffs")
+    selected_specialists = team.get("selected_specialists")
+    selected_label = ", ".join(selected_specialists) if selected_specialists else (
+        "not available; the run failed before returning a plan" if team.get("status") == "error" else "none"
+    )
+    st.write("Selected specialists:", selected_label)
+    st.dataframe([{"step": step.get("step"), "status": step.get("status"), "task_id": step.get("task_id", ""), "latency_ms": step.get("elapsed_ms", ""), "MCP tools": ", ".join(step.get("mcp_tools", [])), "detail": step.get("detail", "")} for step in team.get("steps", [])], hide_index=True, width="stretch")
+    with st.expander("CrewAI protocol and specialist outputs"):
+        st.json({"team_protocol": team.get("protocol"), "specialist_outputs": team.get("specialist_results", []), "evidence_review": team.get("evidence_review", {}), "metrics": metrics})
+
+
 try:
     if mode == "Retrieve":
         render_search(query, strategy, region, top_k, search_method, rerank)
@@ -882,8 +933,10 @@ try:
         render_agent_workflow(query, strategy, top_k)
     elif mode == "MCP stdio":
         render_mcp_stdio(query)
-    elif mode == "Week 10 Agent Race":
-        render_week10_race(query, week10_rates)
+    elif mode == "Week 10 Single Agent":
+        render_mcp_stdio(query, "Week 10 Single Agent (MCP)")
+    elif mode == "Week 10 Crew Team":
+        render_week10_crewai(query, week10_rates)
     else:
         render_answer(query, strategy, region, top_k, search_method, rerank)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed

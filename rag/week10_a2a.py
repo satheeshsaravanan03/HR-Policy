@@ -478,6 +478,13 @@ def _plan(query: str) -> tuple[list[str], str, dict[str, int]]:
         "who has", "who have", "who used", "employee details", "list out employees", "list out the employees", "list employees", "which employees",
     )) and any(term in lowered_query for term in ("leave", "balance", "pending", "filed", "compensatory", "used", "experience", "years of service"))
     explicit_policy_question = any(term in lowered_query for term in ("policy says", "policy rule", "policy limit", "entitlement", "eligibility"))
+    carryover_question = bool(re.search(r"\b(?:carri(?:ed|y)\s+(?:over|forward)|carry\s*-\s*over|carryover|unused\s+leaves?)\b", lowered_query))
+    employee_transaction = bool(re.search(r"\b(?:used|filed|pending|transaction|compare)\b", lowered_query))
+    if carryover_question and not employee_transaction:
+        chosen = [role for role in chosen if role not in {"leave_activity", "record_validator"}]
+        if "policy_research" not in chosen:
+            chosen.append("policy_research")
+        explicit_policy_question = True
     if aggregate_employee_lookup and not explicit_policy_question:
         chosen = [role for role in chosen if role not in {"policy_research", "evidence_review", "policy_calculator", "employee_directory", "record_validator"}]
         if "leave_activity" not in chosen:
@@ -498,9 +505,8 @@ def _fallback_plan(query: str) -> list[str]:
     lowered = re.sub(r"\bmore(?=\s+\d)", "more than", lowered)
     roles: list[str] = []
     personal = bool(_identifier(query))
-    transaction = any(term in lowered for term in (
-        "used", "filed", "pending", "transaction", "who has", "who have", "who used",
-        "compare", "employee details", "list out employees", "list employees", "which employees",
+    transaction = bool(re.search(r"\b(?:used|filed|pending|transaction|compare)\b", lowered)) or any(term in lowered for term in (
+        "who has", "who have", "who used", "employee details", "list out employees", "list employees", "which employees",
     )) or bool(
         re.search(r"\b(?:employee|employees|who|which)\b", lowered)
         and re.search(r"\b(?:more than|over|greater than|above|at least|less than|under|below|at most|exactly)\s+\d", lowered)
@@ -806,6 +812,8 @@ def _append_task_trace(query: str, report: dict[str, Any]) -> None:
         "status": report.get("status"),
         "stop_reason": report.get("stop_reason"),
     }
+    if report.get("error"):
+        record["error"] = redact(str(report["error"]))
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 

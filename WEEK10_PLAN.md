@@ -16,7 +16,7 @@ The team has one manager and six role-specific specialist agents:
 | Policy calculator | Requests the existing policy-backed summary/calculation | `get_employee_leave_summary` |
 | Evidence review | Checks retrieved evidence/citations and employee-policy consistency before synthesis | No broad data access; reviews specialist results |
 
-The current Streamlit and race-script team runner is CrewAI. A CrewAI manager selects applicable specialist roles; a deterministic router adds required safety stages, CrewAI runs the selected tasks sequentially, and each later task receives earlier task outputs through `Task.context`. Record validation follows employee lookup; evidence review receives specialist results before the manager drafts the response. The previous custom Python A2A HTTP runner remains in `rag/week10_a2a.py` for reference, but it is no longer the primary team implementation.
+The current Streamlit and race-script team runner is CrewAI. A CrewAI manager selects applicable specialist roles; a deterministic router adds required safety stages, and CrewAI runs the selected tasks sequentially. To reduce Groq TPM pressure, specialist and evidence-review tasks do not automatically inherit every earlier narrative output; Python retains the complete structured specialist evidence for validation, while the final manager receives only the latest compact task summaries. Record validation follows employee lookup; evidence review audits the structured specialist results before the manager drafts the response. GPT-OSS uses low reasoning effort and a 512-token completion cap to reduce hidden-reasoning token use and preserve room for visible output. The previous custom Python A2A HTTP runner remains in `rag/week10_a2a.py` for reference, but it is no longer the primary team implementation.
 
 ## Legacy A2A protocol reference
 
@@ -34,7 +34,7 @@ Streamlit host
        └─ A2A JSON-RPC message/send ─ evidence review
 ```
 
-The active Week 10 path demonstrates CrewAI agent-to-agent handoff through task outputs and context; it does not claim this is the A2A standard protocol. CrewAI is orchestration, MCP remains the tool/data protocol, and the single-agent MCP baseline remains unchanged. The retired custom A2A service code is retained only as a reference implementation.
+The active Week 10 path demonstrates CrewAI agent-to-agent handoff through selected task outputs; it does not claim this is the A2A standard protocol. Full evidence remains available to Python validation without being repeatedly copied into every model prompt. CrewAI is orchestration, MCP remains the tool/data protocol, and the single-agent MCP baseline remains unchanged. The retired custom A2A service code is retained only as a reference implementation.
 
 CrewAI is a Python framework. Project-specific MCP adapters, deterministic policy checks, employee-record validation, and citation checks remain Python code; this is normal even in framework-based applications. This learning implementation is not production authorization for real employee data.
 

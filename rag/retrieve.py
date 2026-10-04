@@ -47,6 +47,9 @@ TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9._-]*", re.I)
 _ORGANISATION_POLICY_IDS = {
     "soft suave": "SS-HB-2025",
     "softsuave": "SS-HB-2025",
+    # This wording uniquely identifies the Soft Suave handbook's section 9.3
+    # distinction between non-technical carry-over and technical encashment.
+    "non-technical": "SS-HB-2025",
     "azure": "AZURE-HR-2026",
     "northstar": "NORTHSTAR-REMOTE-2026",
     "acme": "ACME-LEAVE-2026",
@@ -77,7 +80,7 @@ def expand_policy_query(query: str) -> str:
     any other factual value, so generation remains grounded in retrieved text.
     """
     lowered = query.lower()
-    if "carry forward" in lowered or ("carry" in lowered and "forward" in lowered):
+    if ("carry forward" in lowered or ("carry" in lowered and "forward" in lowered) or "carried over" in lowered):
         return f"{query} carried over unused leaves leave encashment"
     return query
 

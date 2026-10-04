@@ -2,11 +2,11 @@
 
 ## What we built
 
-Week 10 adds a CrewAI manager-and-specialist team to the existing HR policy app. It runs beside the existing single-agent MCP baseline so both approaches can be compared on the same question or evaluation set.
+Week 10 adds a CrewAI manager-and-specialist team to the existing HR policy app. The Streamlit sidebar now has two independent choices: **Week 10 Single Agent** and **Week 10 Crew Team**. Selecting one runs only that path. The saved evaluation set remains available separately when a side-by-side comparison is wanted.
 
 The team combines three pieces:
 
-- **CrewAI** defines agents, assigns tasks, passes task outputs as context, and runs the team.
+- **CrewAI** defines agents, assigns tasks, and runs the team with deliberately limited task context to control token use.
 - **MCP** provides the existing HR policy and employee-data tools. CrewAI does not replace the MCP server.
 - **Python** connects CrewAI tools to MCP operations and applies deterministic routing, validation, citation checks, and safe response handling.
 
@@ -66,7 +66,7 @@ Response manager synthesizes the answer
 Python applies citation / record safety checks; Streamlit shows answer and steps
 ```
 
-The active CrewAI path uses `Process.sequential`: tasks run one after another, and later tasks receive earlier outputs through `Task.context`. It is **not parallel specialist execution**. The previous custom A2A implementation remains in the repository as reference code, but this CrewAI path uses CrewAI task/context handoffs; it does not claim to use the A2A protocol for these handoffs.
+The active CrewAI path uses `Process.sequential`: tasks run one after another. To reduce repeated prompt tokens, specialist and evidence-review tasks do not automatically inherit every earlier narrative output; Python retains the full structured evidence for deterministic review, and the final manager receives only the latest compact task summaries. GPT-OSS is configured for low reasoning effort and a 512-token completion cap to leave room for a concise visible response. It is **not parallel specialist execution**. The previous custom A2A implementation remains in the repository as reference code, but this CrewAI path uses CrewAI task handoffs; it does not claim to use the A2A protocol for these handoffs.
 
 For employee-list results, the application also has a deterministic Python formatting path after the validated structured records are returned. That avoids asking the LLM to recalculate or invent record values.
 
@@ -96,7 +96,7 @@ From the project root in PowerShell:
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-In Streamlit, choose **Week 10 Agent Race**, enter a question, and run the comparison. To run the saved comparison set from a terminal:
+In Streamlit, choose **Week 10 Single Agent** or **Week 10 Crew Team**, enter a question, and press **Run**. Only the selected path runs. To run the saved comparison set from the Week 10 evaluation expander in the sidebar, or from a terminal:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\16_week10_agent_race.py
