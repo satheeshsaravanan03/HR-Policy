@@ -215,13 +215,27 @@ with st.sidebar:
 
     top_k = st.slider("Chunks to retrieve (top-k)", 1, 15, 5, disabled=retrieval_controls_disabled)
 
+    # Groq GPT-OSS 120B defaults (USD per 1M tokens); edit if the model changes.
     week10_rates = {"input_per_million": None, "output_per_million": None}
+    ask_rates = None
     if mode in week10_modes:
-        st.caption("Estimated cost requires the model's USD price per million tokens. Leave both at 0 to omit cost instead of implying free usage.")
-        input_rate = st.number_input("Input USD / 1M tokens", min_value=0.0, value=0.0, step=0.01, key="week10_input_rate")
-        output_rate = st.number_input("Output USD / 1M tokens", min_value=0.0, value=0.0, step=0.01, key="week10_output_rate")
+        st.caption("Default rates are for Groq openai/gpt-oss-120b (USD per 1M tokens). Adjust them if you change models; estimates are not provider billing totals.")
+        input_rate = st.number_input("Input USD / 1M tokens", min_value=0.0, value=0.15, step=0.01, key="week10_input_rate")
+        output_rate = st.number_input("Output USD / 1M tokens", min_value=0.0, value=0.60, step=0.01, key="week10_output_rate")
         if input_rate > 0 or output_rate > 0:
             week10_rates = {"input_per_million": input_rate, "output_per_million": output_rate}
+    elif mode == "Ask":
+        with st.expander("Week 11 Ask-mode cost tracking", expanded=False):
+            st.caption("Defaults are Groq openai/gpt-oss-120b rates in USD per 1M tokens. Adjust if you change models; these are estimates, not provider billing totals.")
+            ask_input_rate = st.number_input("Input USD / 1M tokens", min_value=0.0, value=0.15, step=0.01, key="week11_ask_input_rate")
+            ask_output_rate = st.number_input("Output USD / 1M tokens", min_value=0.0, value=0.60, step=0.01, key="week11_ask_output_rate")
+            ask_cached_rate = st.number_input("Cached input USD / 1M tokens", min_value=0.0, value=0.075, step=0.01, key="week11_ask_cached_rate")
+            if ask_input_rate > 0 and ask_output_rate > 0:
+                ask_rates = {
+                    "input_per_million": ask_input_rate,
+                    "output_per_million": ask_output_rate,
+                    "cached_input_per_million": ask_cached_rate,
+                }
 
     st.divider()
     with st.expander("Week 6 evaluations", expanded=False):
@@ -379,102 +393,100 @@ if "autorun" not in st.session_state:
     st.session_state.autorun = False
 
 st.markdown("### Ask anything")
-st.caption(
-    "Type any question below and press **Enter**, or use a preset button to fill "
-    "the box and run it straight away."
-)
+st.caption("Type a question below, or open the preset panel to select a sample question.")
 
-quick_questions = {
-    "ACME — annual leave entitlement": "How many annual leave days does an ACME full-time employee receive per calendar year?",
-    "ACME — carry-forward limit": "What is the carry-forward limit in the ACME leave policy?",
-    "ACME — United States applicability": "What is the annual leave policy for ACME in the United States?",
-    "SoftSuave — non-technical carry-forward": "For non-technical staff, how many unused leaves can be carried over to the next year?",
-    "Employee — EMP-002 leave summary": "Show the policy-backed leave summary for EMP-002, including current balance, carry-forward and compensatory leave.",
-    "Refusal check — sabbatical": "What is SoftSuave's sabbatical leave entitlement?",
-}
-quick_choice = st.selectbox(
-    "Quick-pick a question",
-    ["Choose a sample question…", *quick_questions],
-    key="quick_question_choice",
-)
-if st.button(
-    "Select and run question",
-    key="run_quick_question",
-    disabled=quick_choice == "Choose a sample question…",
-):
-    st.session_state.query = quick_questions[quick_choice]
-    st.session_state.autorun = True
-
-known, refusal, week7_presets, mcp_presets = st.tabs([
-    "Preset: known-answer questions",
-    "Preset: should be refused",
-    "Preset: Week 7 scenarios",
-    "Preset: MCP stdio",
-])
-
-with known:
-    st.caption("The 8 questions used for the measurement, with known-correct answers.")
-    for q in QUESTIONS:
-        cols = st.columns([1, 11])
-        if cols[0].button(q.qid, key=f"btn_{q.qid}", width="stretch"):
-            st.session_state.query = q.query
-            st.session_state.autorun = True
-        cols[1].markdown(
-            f"{q.query}  \n<small>expected <code>{q.policy_id}</code> section "
-            f"<code>{q.section}</code> — {q.known_answer}"
-            f"{' · <b>table row</b>' if q.from_table_row else ''}</small>",
-            unsafe_allow_html=True,
-        )
-
-with refusal:
-    st.caption(
-        "Out-of-corpus questions. Watch the relevance scores stay high while the "
-        "answer is still refused — a similarity threshold alone catches none of these."
+with st.expander("Quick picks and preset questions", expanded=False):
+    quick_questions = {
+        "ACME — annual leave entitlement": "How many annual leave days does an ACME full-time employee receive per calendar year?",
+        "ACME — carry-forward limit": "What is the carry-forward limit in the ACME leave policy?",
+        "ACME — United States applicability": "What is the annual leave policy for ACME in the United States?",
+        "SoftSuave — non-technical carry-forward": "For non-technical staff, how many unused leaves can be carried over to the next year?",
+        "Employee — EMP-002 leave summary": "Show the policy-backed leave summary for EMP-002, including current balance, carry-forward and compensatory leave.",
+        "Refusal check — sabbatical": "What is SoftSuave's sabbatical leave entitlement?",
+    }
+    quick_choice = st.selectbox(
+        "Quick-pick a question",
+        ["Choose a sample question…", *quick_questions],
+        key="quick_question_choice",
     )
-    for case in REFUSALS:
-        cols = st.columns([1, 11])
-        if cols[0].button(case.qid, key=f"btn_{case.qid}", width="stretch"):
-            st.session_state.query = case.query
-            st.session_state.autorun = True
-        cols[1].markdown(
-            f"{case.query}  \n<small>{case.difficulty}</small>",
-            unsafe_allow_html=True,
+    if st.button(
+        "Select and run question",
+        key="run_quick_question",
+        disabled=quick_choice == "Choose a sample question…",
+    ):
+        st.session_state.query = quick_questions[quick_choice]
+        st.session_state.autorun = True
+
+    known, refusal, week7_presets, mcp_presets = st.tabs([
+        "Preset: known-answer questions",
+        "Preset: should be refused",
+        "Preset: Week 7 scenarios",
+        "Preset: MCP stdio",
+    ])
+
+    with known:
+        st.caption("The 8 questions used for the measurement, with known-correct answers.")
+        for q in QUESTIONS:
+            cols = st.columns([1, 11])
+            if cols[0].button(q.qid, key=f"btn_{q.qid}", width="stretch"):
+                st.session_state.query = q.query
+                st.session_state.autorun = True
+            cols[1].markdown(
+                f"{q.query}  \n<small>expected <code>{q.policy_id}</code> section "
+                f"<code>{q.section}</code> — {q.known_answer}"
+                f"{' · <b>table row</b>' if q.from_table_row else ''}</small>",
+                unsafe_allow_html=True,
+            )
+
+    with refusal:
+        st.caption(
+            "Out-of-corpus questions. Watch the relevance scores stay high while the "
+            "answer is still refused — a similarity threshold alone catches none of these."
         )
+        for case in REFUSALS:
+            cols = st.columns([1, 11])
+            if cols[0].button(case.qid, key=f"btn_{case.qid}", width="stretch"):
+                st.session_state.query = case.query
+                st.session_state.autorun = True
+            cols[1].markdown(
+                f"{case.query}  \n<small>{case.difficulty}</small>",
+                unsafe_allow_html=True,
+            )
 
-with week7_presets:
-    st.caption("Scenarios demonstrating workflows, agents, multi-policy comparisons, and missing fact handling.")
-    w7_cases = [
-        ("W7-01", "Compare annual leave between Acme and SoftSuave employees.", "Multi-policy comparison across two organizations"),
-        ("W7-02", "Am I eligible to work from home full-time?", "Eligibility missing employee details -> agent returns needs_input"),
-        ("W7-03", "What is the nottice periond under permanent employment terms?", "Spelling noise requiring normalization / retry"),
-        ("W7-04", "What are the core working hours and attendance rules for an employee?", "Cross-policy context with distinct definitions"),
-        ("W7-05", "What is the leave balance, carry-forward, and compensatory leave for EMP-001?", "Structured employee lookup and multi-value calculation"),
-        ("W7-06", "How much annual leave does employee003@example.com have and how much can be carried forward?", "Email lookup with editable employee record"),
-        ("W7-07", "For EMP-004, how much leave can be carried into next year?", "Employee-specific carry-forward calculation"),
-        ("W7-08", "What is my current leave balance and carry-forward amount?", "Missing employee identifier -> agent requests clarification"),
-    ]
-    for cid, cquery, cdesc in w7_cases:
-        cols = st.columns([1, 11])
-        if cols[0].button(cid, key=f"btn_{cid}", width="stretch"):
-            st.session_state.query = cquery
-            st.session_state.autorun = True
-        cols[1].markdown(f"{cquery}  \n<small>{cdesc}</small>", unsafe_allow_html=True)
+    with week7_presets:
+        st.caption("Scenarios demonstrating workflows, agents, multi-policy comparisons, and missing fact handling.")
+        w7_cases = [
+            ("W7-01", "Compare annual leave between Acme and SoftSuave employees.", "Multi-policy comparison across two organizations"),
+            ("W7-02", "Am I eligible to work from home full-time?", "Eligibility missing employee details -> agent returns needs_input"),
+            ("W7-03", "What is the nottice periond under permanent employment terms?", "Spelling noise requiring normalization / retry"),
+            ("W7-04", "What are the core working hours and attendance rules for an employee?", "Cross-policy context with distinct definitions"),
+            ("W7-05", "What is the leave balance, carry-forward, and compensatory leave for EMP-001?", "Structured employee lookup and multi-value calculation"),
+            ("W7-06", "How much annual leave does employee003@example.com have and how much can be carried forward?", "Email lookup with editable employee record"),
+            ("W7-07", "For EMP-004, how much leave can be carried into next year?", "Employee-specific carry-forward calculation"),
+            ("W7-08", "What is my current leave balance and carry-forward amount?", "Missing employee identifier -> agent requests clarification"),
+        ]
+        for cid, cquery, cdesc in w7_cases:
+            cols = st.columns([1, 11])
+            if cols[0].button(cid, key=f"btn_{cid}", width="stretch"):
+                st.session_state.query = cquery
+                st.session_state.autorun = True
+            cols[1].markdown(f"{cquery}  \n<small>{cdesc}</small>", unsafe_allow_html=True)
 
-with mcp_presets:
-    st.caption("First select MCP stdio mode in the sidebar. These single-policy examples run immediately when selected.")
-    mcp_cases = [
-        ("MCP-01", "What is the annual leave policy for ACME in the United States?", "ACME policy lookup"),
-        ("MCP-02", "How much annual leave does a confirmed Azure employee with at least one year of service receive?", "Azure entitlement by service length"),
-        ("MCP-03", "How many casual and privilege leaves are provided in the SoftSuave handbook?", "SoftSuave handbook lookup"),
-        ("MCP-04", "What is Northstar's annual leave entitlement and accrual rate?", "Northstar synthetic policy lookup"),
-        ("MCP-05", "What is the carry-forward limit in the ACME leave policy?", "ACME carry-forward rule"),
-    ]
-    for cid, cquery, cdesc in mcp_cases:
-        cols = st.columns([1, 11])
-        if cols[0].button(cid, key=f"btn_{cid}", width="stretch"):
-            st.session_state.query = cquery
-            st.session_state.autorun = True
-        cols[1].markdown(f"{cquery}  \n<small>{cdesc}</small>", unsafe_allow_html=True)
+    with mcp_presets:
+        st.caption("First select MCP stdio mode in the sidebar. These single-policy examples run immediately when selected.")
+        mcp_cases = [
+            ("MCP-01", "What is the annual leave policy for ACME in the United States?", "ACME policy lookup"),
+            ("MCP-02", "How much annual leave does a confirmed Azure employee with at least one year of service receive?", "Azure entitlement by service length"),
+            ("MCP-03", "How many casual and privilege leaves are provided in the SoftSuave handbook?", "SoftSuave handbook lookup"),
+            ("MCP-04", "What is Northstar's annual leave entitlement and accrual rate?", "Northstar synthetic policy lookup"),
+            ("MCP-05", "What is the carry-forward limit in the ACME leave policy?", "ACME carry-forward rule"),
+        ]
+        for cid, cquery, cdesc in mcp_cases:
+            cols = st.columns([1, 11])
+            if cols[0].button(cid, key=f"btn_{cid}", width="stretch"):
+                st.session_state.query = cquery
+                st.session_state.autorun = True
+            cols[1].markdown(f"{cquery}  \n<small>{cdesc}</small>", unsafe_allow_html=True)
 
 st.divider()
 
@@ -513,9 +525,26 @@ def render_rerank(query: str, strategy: str, region, top_k: int, search_method: 
     show_hits(hits, f"strategy={strategy} · reranker=local cross-encoder" + (f" · region={region}" if region else ""))
 
 
-def render_answer(query: str, strategy: str, region, top_k: int, search_method: str, rerank: str) -> None:
+def render_answer(query: str, strategy: str, region, top_k: int, search_method: str, rerank: str, rates=None) -> None:
     with st.spinner("retrieving and generating"):
-        result = answer(strategy, query, top_k=top_k, region=region, method=search_method, rerank=rerank)
+        result = answer(strategy, query, top_k=top_k, region=region, method=search_method, rerank=rerank, rates=rates)
+
+    metrics = result.metrics
+    st.caption(f"Request trace ID: `{result.trace_id}`")
+    metric_columns = st.columns(5)
+    metric_columns[0].metric("Total latency", f"{metrics.get('total', 0):.0f} ms")
+    metric_columns[1].metric("Retrieval", f"{metrics.get('retrieval', 0):.0f} ms")
+    first_token = metrics.get("first_token")
+    metric_columns[2].metric("First token", f"{first_token:.0f} ms" if first_token is not None else "Not generated")
+    input_tokens = metrics.get("input_tokens")
+    output_tokens = metrics.get("output_tokens")
+    token_label = f"{input_tokens or 0} in / {output_tokens or 0} out" if input_tokens is not None and output_tokens is not None else "Unavailable"
+    metric_columns[3].metric("Tokens", token_label)
+    estimated_cost = metrics.get("estimated_cost_usd")
+    missing_cost_label = "Unavailable (usage missing)" if rates else "Not configured"
+    metric_columns[4].metric("Estimated cost", f"${estimated_cost:.6f}" if estimated_cost is not None else missing_cost_label)
+    with st.expander("Request trace details", expanded=False):
+        st.json({"trace_id": result.trace_id, "timings_ms": {key: metrics.get(key) for key in ("retrieval", "safety_check", "first_token", "generation", "total")}, "usage": {key: metrics.get(key) for key in ("input_tokens", "output_tokens", "cached_input_tokens", "reasoning_tokens")}, "estimated_cost_usd": estimated_cost})
 
     if result.is_refusal:
         st.error(f"**Refused** — gate: `{result.gate}`")
@@ -938,8 +967,11 @@ try:
     elif mode == "Week 10 Crew Team":
         render_week10_crewai(query, week10_rates)
     else:
-        render_answer(query, strategy, region, top_k, search_method, rerank)
+        render_answer(query, strategy, region, top_k, search_method, rerank, ask_rates)
 except Exception as exc:  # noqa: BLE001 - explained to the user, never swallowed
+    failed_trace_id = getattr(exc, "trace_id", None)
+    if failed_trace_id:
+        st.caption(f"Failed request trace ID: `{failed_trace_id}`")
     if not provider_notice(exc):
         if mode == "MCP stdio":
             st.error("MCP stdio request failed. Underlying error:")
